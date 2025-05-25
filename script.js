@@ -248,8 +248,14 @@ function populateCurrentLinks() {
         row.forEach((link, linkIndex) => {
             const linkRow = document.createElement('div');
             linkRow.className = 'link-row';
+            linkRow.draggable = true;
+            linkRow.dataset.rowIndex = rowIndex;
+            linkRow.dataset.linkIndex = linkIndex;
             
             linkRow.innerHTML = `
+                <div class="drag-handle">
+                    <i data-lucide="grip-vertical" class="h-4 w-4 text-gray-500"></i>
+                </div>
                 <div class="link-preview">
                     <div class="w-4 h-4 flex items-center justify-center">
                         ${getLinkPreviewIcon(link)}
@@ -266,11 +272,114 @@ function populateCurrentLinks() {
             const deleteBtn = linkRow.querySelector('.btn-danger');
             deleteBtn.addEventListener('click', () => removeLink(rowIndex, linkIndex));
             
+            // Add drag and drop event listeners
+            linkRow.addEventListener('dragstart', handleDragStart);
+            linkRow.addEventListener('dragover', handleDragOver);
+            linkRow.addEventListener('drop', handleDrop);
+            linkRow.addEventListener('dragend', handleDragEnd);
+            
             container.appendChild(linkRow);
         });
     });
     
     lucide.createIcons();
+}
+
+// Drag and drop functionality
+let draggedElement = null;
+let draggedData = null;
+
+function handleDragStart(e) {
+    draggedElement = this;
+    draggedData = {
+        rowIndex: parseInt(this.dataset.rowIndex),
+        linkIndex: parseInt(this.dataset.linkIndex)
+    };
+    
+    this.style.opacity = '0.5';
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    
+    e.dataTransfer.dropEffect = 'move';
+    
+    // Add visual feedback
+    this.style.borderTop = '2px solid #6366f1';
+    
+    return false;
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    
+    if (draggedElement !== this) {
+        const targetRowIndex = parseInt(this.dataset.rowIndex);
+        const targetLinkIndex = parseInt(this.dataset.linkIndex);
+        
+        // Get the dragged link
+        const draggedLink = rowLinks[draggedData.rowIndex][draggedData.linkIndex];
+        
+        // Remove the dragged link from its original position
+        rowLinks[draggedData.rowIndex].splice(draggedData.linkIndex, 1);
+        
+        // Clean up empty rows
+        rowLinks = rowLinks.filter(row => row.length > 0);
+        
+        // Calculate new position after removal
+        let newTargetRowIndex = targetRowIndex;
+        let newTargetLinkIndex = targetLinkIndex;
+        
+        // If we removed from a row before the target, adjust indices
+        if (draggedData.rowIndex < targetRowIndex) {
+            // Check if the target row still exists after cleanup
+            if (newTargetRowIndex >= rowLinks.length) {
+                newTargetRowIndex = rowLinks.length - 1;
+                newTargetLinkIndex = rowLinks[newTargetRowIndex].length;
+            }
+        } else if (draggedData.rowIndex === targetRowIndex && draggedData.linkIndex < targetLinkIndex) {
+            // Same row, dragged from before target
+            newTargetLinkIndex = targetLinkIndex - 1;
+        }
+        
+        // Insert the link at the new position
+        if (newTargetRowIndex < rowLinks.length) {
+            rowLinks[newTargetRowIndex].splice(newTargetLinkIndex, 0, draggedLink);
+        } else {
+            // Add to end of last row or create new row
+            if (rowLinks.length > 0) {
+                rowLinks[rowLinks.length - 1].push(draggedLink);
+            } else {
+                rowLinks.push([draggedLink]);
+            }
+        }
+        
+        // Save and refresh
+        saveLinks();
+        populateLinks();
+        populateCurrentLinks();
+    }
+    
+    return false;
+}
+
+function handleDragEnd(e) {
+    // Reset styles
+    this.style.opacity = '';
+    
+    // Remove visual feedback from all elements
+    const allRows = document.querySelectorAll('.link-row');
+    allRows.forEach(row => {
+        row.style.borderTop = '';
+    });
+    
+    draggedElement = null;
+    draggedData = null;
 }
 
 function getLinkPreviewIcon(link) {
