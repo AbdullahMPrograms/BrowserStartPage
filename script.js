@@ -159,6 +159,39 @@ function setupManageLinks() {
     const modalOverlay = document.getElementById('modal-overlay');
     const closeModal = document.getElementById('close-modal');
     const addLinkForm = document.getElementById('add-link-form');
+    const iconTypeSelect = document.getElementById('icon-type');
+    const iconFields = document.getElementById('icon-fields');
+    const localField = document.getElementById('local-field');
+    const colorField = document.getElementById('color-field');
+    const iconHelp = document.getElementById('icon-help');
+
+    // Handle icon type changes
+    iconTypeSelect.addEventListener('change', function() {
+        const selectedType = this.value;
+        
+        // Hide all conditional fields first
+        iconFields.style.display = 'none';
+        localField.style.display = 'none';
+        colorField.style.display = 'none';
+        
+        // Clear all conditional inputs
+        document.getElementById('icon-name').value = '';
+        document.getElementById('icon-color').value = '';
+        document.getElementById('local-filename').value = '';
+        
+        if (selectedType === 'simple') {
+            iconFields.style.display = 'grid';
+            colorField.style.display = 'block';
+            iconHelp.textContent = 'Simple Icons name (e.g., "github", "twitter")';
+        } else if (selectedType === 'lucide') {
+            iconFields.style.display = 'grid';
+            colorField.style.display = 'block';
+            iconHelp.textContent = 'Lucide icon name (e.g., "home", "user", "settings")';
+        } else if (selectedType === 'local') {
+            localField.style.display = 'block';
+        }
+        // For 'auto', nothing additional is shown
+    });
 
     // Show/hide manage button on hover
     let hoverTimeout;
@@ -194,6 +227,10 @@ function setupManageLinks() {
         modalOverlay.classList.remove('active');
         document.body.style.overflow = '';
         addLinkForm.reset();
+        // Reset conditional fields
+        iconFields.style.display = 'none';
+        localField.style.display = 'none';
+        colorField.style.display = 'none';
     }
 
     // Add new link
@@ -203,20 +240,34 @@ function setupManageLinks() {
         const name = document.getElementById('link-name').value.trim();
         const url = document.getElementById('link-url').value.trim();
         const iconType = document.getElementById('icon-type').value;
-        const iconValue = document.getElementById('icon-value').value.trim();
 
         const newLink = { name, url, type: iconType };
 
         if (iconType === 'simple') {
-            const parts = iconValue.split(',').map(p => p.trim());
-            newLink.icon = parts[0];
-            newLink.color = parts[1] || '#FFFFFF';
+            const iconName = document.getElementById('icon-name').value.trim();
+            const iconColor = document.getElementById('icon-color').value.trim();
+            if (!iconName) {
+                alert('Please enter an icon name for Simple Icons');
+                return;
+            }
+            newLink.icon = iconName;
+            newLink.color = iconColor || '#FFFFFF';
         } else if (iconType === 'lucide') {
-            const parts = iconValue.split(',').map(p => p.trim());
-            newLink.icon = parts[0];
-            newLink.color = parts[1] || '#FFFFFF';
+            const iconName = document.getElementById('icon-name').value.trim();
+            const iconColor = document.getElementById('icon-color').value.trim();
+            if (!iconName) {
+                alert('Please enter an icon name for Lucide Icons');
+                return;
+            }
+            newLink.icon = iconName;
+            newLink.color = iconColor || '#FFFFFF';
         } else if (iconType === 'local') {
-            newLink.icon = iconValue;
+            const filename = document.getElementById('local-filename').value.trim();
+            if (!filename) {
+                alert('Please enter a filename for local image');
+                return;
+            }
+            newLink.icon = filename;
         }
 
         // Find the first available spot
@@ -237,6 +288,10 @@ function setupManageLinks() {
         await populateLinks();
         populateCurrentLinks();
         addLinkForm.reset();
+        // Reset conditional fields
+        iconFields.style.display = 'none';
+        localField.style.display = 'none';
+        colorField.style.display = 'none';
     });
 }
 

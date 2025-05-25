@@ -326,17 +326,20 @@
 
             <!-- Add New Link Form -->
             <div class="mb-6 p-4 bg-gray-800 bg-opacity-50 rounded-lg">
-                <h3 class="text-lg font-semibold text-white mb-4">Add New Link</h3>
-                <form id="add-link-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="form-group">
-                        <label class="form-label">Name</label>
-                        <input type="text" id="link-name" class="form-input" placeholder="Enter link name" required>
+                <h3 class="text-lg font-semibold text-white mb-2">Add New Link</h3>
+                <form id="add-link-form">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="form-group">
+                            <label class="form-label">Name</label>
+                            <input type="text" id="link-name" class="form-input" placeholder="Enter link name" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">URL</label>
+                            <input type="url" id="link-url" class="form-input" placeholder="https://example.com" required>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">URL</label>
-                        <input type="url" id="link-url" class="form-input" placeholder="https://example.com" required>
-                    </div>
-                    <div class="form-group">
+                    
+                    <div class="form-group mb-4">
                         <label class="form-label">Icon Type</label>
                         <select id="icon-type" class="form-select">
                             <option value="auto">Auto (Favicon)</option>
@@ -345,20 +348,38 @@
                             <option value="local">Local Image</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Icon/Color</label>
-                        <input type="text" id="icon-value" class="form-input" placeholder="Icon name or color">
-                        <small class="text-xs text-gray-400 mt-1">For Simple/Lucide: icon name. For Simple: also add color. For Local: filename</small>
+                    
+                    <div id="icon-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Icon Name</label>
+                            <input type="text" id="icon-name" class="form-input" placeholder="Enter icon name">
+                            <small id="icon-help" class="text-xs text-gray-400 mt-1">Enter the icon name</small>
+                        </div>
+                        <div class="form-group" id="color-field">
+                            <label class="form-label">Color</label>
+                            <input type="text" id="icon-color" class="form-input" placeholder="#FFFFFF or color name">
+                            <small class="text-xs text-gray-400 mt-1">Hex color code or color name</small>
+                        </div>
                     </div>
-                    <div class="form-group md:col-span-2">
-                        <button type="submit" class="btn btn-primary">Add Link</button>
+                    
+                    <div id="local-field" class="form-group" style="display: none;">
+                        <label class="form-label">Image Filename</label>
+                        <input type="text" id="local-filename" class="form-input" placeholder="image.png">
+                        <small class="text-xs text-gray-400 mt-1">Filename of image in the images folder</small>
+                    </div>
+                    
+                    <div class="flex justify-center mt-6">
+                        <button type="submit" class="btn btn-primary px-8 py-3 flex items-center">
+                            <i data-lucide="plus" class="h-4 w-4 mr-2"></i>
+                            Add Link
+                        </button>
                     </div>
                 </form>
             </div>
 
             <!-- Current Links -->
             <div>
-                <h3 class="text-lg font-semibold text-white mb-4">Current Links</h3>
+                <h3 class="text-lg font-semibold text-white mb-2">Current Links</h3>
                 <div id="current-links" class="space-y-2">
                     <!-- Links will be populated here -->
                 </div>
