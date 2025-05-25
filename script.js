@@ -119,6 +119,10 @@ document.getElementById('search-form').addEventListener('submit', function(e) {
     }
 });
 
+window.addEventListener('pageshow', function() {
+    document.getElementById('search-input').value = '';
+});
+
 updateTime();
 setInterval(updateTime, 1000);
 
