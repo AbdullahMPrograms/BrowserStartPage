@@ -5,8 +5,18 @@
   "chrome_url_overrides": {
     "newtab": "index.html"
   },
+  "permissions": [
+    "favicon",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.google.com/*",
+    "https://cdn.jsdelivr.net/*",
+    "https://*/*",
+    "http://*/*"
+  ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; connect-src https: http:;"
   },
   "web_accessible_resources": [{
     "resources": ["images/*"],

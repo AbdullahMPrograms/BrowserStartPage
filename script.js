@@ -20,28 +20,28 @@ function updateTime() {
 
 const rowLinks = [
     [
-        { name: 'Reddit', url: 'https://reddit.com', icon: 'reddit.png', color: '#FF4500', type: 'local' },
-        { name: 'Youtube', url: 'https://www.youtube.com/', icon: 'youtube.png', color: '#FF0000', type: 'local' },
-        { name: 'Marketplace', url: 'https://www.facebook.com/marketplace/toronto?ref=bookmark', icon: 'facebook.png', color: '#0866FF', type: 'local' },
+        { name: 'Reddit', url: 'https://reddit.com', type: 'auto' },
+        { name: 'Youtube', url: 'https://www.youtube.com/', type: 'auto' },
+        { name: 'Marketplace', url: 'https://www.facebook.com/marketplace/toronto?ref=bookmark', type: 'auto' },
         { name: 'Twitter', url: 'https://twitter.com', icon: 'twitter', color: '#1DA1F2', type: 'simple' }
     ],
     [
-        { name: 'Drive', url: 'https://drive.google.com', icon: 'drive.png', color: '#4285F4', type: 'local' },
-        { name: 'Courses', url: 'https://courses.torontomu.ca/d2l/home', icon: 'tmu.png', color: '#F57C00', type: 'local' },
-        { name: 'OneNote', url: 'https://www.onenote.com', icon: 'onenote.png', color: '#7719AA', type: 'local' },
-        { name: 'Gmail', url: 'https://gmail.com', icon: 'gmail.png', color: '#EA4335', type: 'local' }
+        { name: 'Drive', url: 'https://drive.google.com', icon: 'drive.png', type: 'local' },
+        { name: 'Courses', url: 'https://courses.torontomu.ca/d2l/home', icon: 'tmu.png', type: 'local' },
+        { name: 'OneNote', url: 'https://www.onenote.com', type: 'auto' },
+        { name: 'Gmail', url: 'https://gmail.com', icon: 'gmail.png', type: 'local' }
     ],
     [
         { name: 'Github', url: 'https://github.com', icon: 'github', color: '#FFFFFF', type: 'simple' },
-        { name: 'Ebay', url: 'https://www.ebay.ca/', icon: 'ebay.png', color: '#FFFFFF', type: 'local' },
+        { name: 'Ebay', url: 'https://www.ebay.ca/', type: 'auto' },
         { name: 'LocalLLaMA', url: 'https://www.reddit.com/r/LocalLLaMA/', icon: 'cpu', color: '#FF4500', type: 'lucide' },
-        { name: 'MonkeyType', url: 'https://monkeytype.com', icon: 'monkeytype.png', color: '#E2B714', type: 'local' }
+        { name: 'MonkeyType', url: 'https://monkeytype.com', icon: 'monkeytype.png', type: 'local' }
     ],
     [
-        { name: 'AI Studio', url: 'https://aistudio.google.com', icon: 'aistudio.png', color: '#4285F4', type: 'local' },
-        { name: 'Claude', url: 'https://claude.ai/', icon: 'claude', color: '#D97757', type: 'simple' },
+        { name: 'AI Studio', url: 'https://aistudio.google.com', icon: 'aistudio.png',  type: 'local' },
+        { name: 'Claude', url: 'https://claude.ai/', type: 'auto' },
         { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: 'openai', color: '#FFFFFF', type: 'simple' },
-        { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: 'deepseek.png', color: '#BA478F', type: 'local' }
+        { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: 'deepseek.png', type: 'local' }
     ]
 ];
 
@@ -58,7 +58,7 @@ async function loadSimpleIcon(iconName) {
     return null;
 }
 
-// Function to get favicon URL from a website (not working yet, need to investigate)
+// Function to get favicon URL from a website
 function getFaviconUrl(url) {
     try {
         const urlObj = new URL(url);
