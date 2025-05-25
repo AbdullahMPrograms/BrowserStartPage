@@ -257,10 +257,14 @@ function populateCurrentLinks() {
                     <span class="text-white font-medium">${link.name}</span>
                     <span class="text-gray-400 text-sm">${link.url}</span>
                 </div>
-                <button class="btn btn-danger btn-sm" onclick="removeLink(${rowIndex}, ${linkIndex})">
+                <button class="btn btn-danger btn-sm" data-row="${rowIndex}" data-link="${linkIndex}">
                     <i data-lucide="trash-2" class="h-4 w-4"></i>
                 </button>
             `;
+            
+            // Add event listener for delete button
+            const deleteBtn = linkRow.querySelector('.btn-danger');
+            deleteBtn.addEventListener('click', () => removeLink(rowIndex, linkIndex));
             
             container.appendChild(linkRow);
         });
