@@ -20,28 +20,28 @@ function updateTime() {
 
 const rowLinks = [
     [
-        { name: 'Reddit', url: 'https://reddit.com', icon: 'reddit', color: '#FF4500', type: 'simple' },
-        { name: 'Youtube', url: 'https://www.youtube.com/', icon: 'youtube', color: '#FF0000', type: 'simple' },
-        { name: 'Marketplace', url: 'https://www.facebook.com/marketplace/toronto?ref=bookmark', icon: 'facebook', color: '#0866FF', type: 'simple' },
-        { name: 'Twitter', url: 'https://twitter.com', icon: 'twitter', color: '#1DA1F2', type: 'lucide' }
+        { name: 'Reddit', url: 'https://reddit.com', icon: 'reddit.png', color: '#FF4500', type: 'local' },
+        { name: 'Youtube', url: 'https://www.youtube.com/', icon: 'youtube.png', color: '#FF0000', type: 'local' },
+        { name: 'Marketplace', url: 'https://www.facebook.com/marketplace/toronto?ref=bookmark', icon: 'facebook.png', color: '#0866FF', type: 'local' },
+        { name: 'Twitter', url: 'https://twitter.com', icon: 'twitter', color: '#1DA1F2', type: 'simple' }
     ],
     [
-        { name: 'Drive', url: 'https://drive.google.com', icon: 'googledrive', color: '#4285F4', type: 'simple' },
-        { name: 'Courses', url: 'https://courses.torontomu.ca/d2l/home', icon: 'graduation-cap', color: '#F57C00', type: 'lucide' },
-        { name: 'OneNote', url: 'https://www.onenote.com', icon: 'microsoftonenote', color: '#7719AA', type: 'simple' },
-        { name: 'Gmail', url: 'https://gmail.com', icon: 'gmail', color: '#EA4335', type: 'simple' }
+        { name: 'Drive', url: 'https://drive.google.com', icon: 'drive.png', color: '#4285F4', type: 'local' },
+        { name: 'Courses', url: 'https://courses.torontomu.ca/d2l/home', icon: 'tmu.png', color: '#F57C00', type: 'local' },
+        { name: 'OneNote', url: 'https://www.onenote.com', icon: 'onenote.png', color: '#7719AA', type: 'local' },
+        { name: 'Gmail', url: 'https://gmail.com', icon: 'gmail.png', color: '#EA4335', type: 'local' }
     ],
     [
         { name: 'Github', url: 'https://github.com', icon: 'github', color: '#FFFFFF', type: 'simple' },
-        { name: 'Ebay', url: 'https://www.ebay.ca/', icon: 'ebay', color: '#FFFFFF', type: 'simple' },
+        { name: 'Ebay', url: 'https://www.ebay.ca/', icon: 'ebay.png', color: '#FFFFFF', type: 'local' },
         { name: 'LocalLLaMA', url: 'https://www.reddit.com/r/LocalLLaMA/', icon: 'cpu', color: '#FF4500', type: 'lucide' },
         { name: 'MonkeyType', url: 'https://monkeytype.com', icon: 'keyboard', color: '#E2B714', type: 'lucide' }
     ],
     [
-        { name: 'AI Studio', url: 'https://aistudio.google.com', icon: 'brain', color: '#4285F4', type: 'lucide' },
-        { name: 'Hacker News', url: 'https://news.ycombinator.com/', icon: 'ycombinator', color: '#FF6600', type: 'simple' },
-        { name: 'WSB', url: 'https://www.reddit.com/r/wallstreetbets/', icon: 'reddit', color: '#FF4500', type: 'simple' },
-        { name: 'Music', url: 'https://musicforprogramming.net/latest/', icon: 'headphones', color: '#BA478F', type: 'lucide' }
+        { name: 'AI Studio', url: 'https://aistudio.google.com', icon: 'aistudio.png', color: '#4285F4', type: 'local' },
+        { name: 'Claude', url: 'https://claude.ai/', icon: 'claude', color: '#D97757', type: 'simple' },
+        { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: 'openai', color: '#FFFFFF', type: 'simple' },
+        { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: 'deepseek.png', color: '#BA478F', type: 'local' }
     ]
 ];
 
@@ -56,6 +56,18 @@ async function loadSimpleIcon(iconName) {
         console.log(`Could not load icon: ${iconName}`);
     }
     return null;
+}
+
+// Function to get favicon URL from a website (not working yet, need to investigate)
+function getFaviconUrl(url) {
+    try {
+        const urlObj = new URL(url);
+        const domain = urlObj.hostname;
+        return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+    } catch (error) {
+        console.log(`Could not get favicon for: ${url}`);
+        return null;
+    }
 }
 
 async function populateLinks() {
@@ -92,6 +104,12 @@ async function populateLinks() {
             } else if (link.type === 'local') {
                 // Use local image
                 iconHtml = `<img src="images/${link.icon}" alt="${link.name}" class="w-4 h-4 object-contain">`;
+            } else if (link.type === 'auto') {
+                // Use automatic favicon
+                const faviconUrl = getFaviconUrl(link.url);
+                if (faviconUrl) {
+                    iconHtml = `<img src="${faviconUrl}" alt="${link.name}" class="w-4 h-4 object-contain" onerror="this.style.display='none'">`;
+                }
             } else {
                 // Use Lucide icon
                 iconHtml = `<i data-lucide="${link.icon}" class="h-4 w-4" style="color: ${link.color}"></i>`;
