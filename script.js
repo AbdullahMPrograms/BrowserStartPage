@@ -246,6 +246,9 @@ function populateCurrentLinks() {
 
     rowLinks.forEach((row, rowIndex) => {
         row.forEach((link, linkIndex) => {
+            const linkContainer = document.createElement('div');
+            linkContainer.className = 'link-container';
+            
             const linkRow = document.createElement('div');
             linkRow.className = 'link-row';
             linkRow.draggable = true;
@@ -257,20 +260,57 @@ function populateCurrentLinks() {
                     <i data-lucide="grip-vertical" class="h-4 w-4 text-gray-500"></i>
                 </div>
                 <div class="link-preview">
-                    <div class="w-4 h-4 flex items-center justify-center">
+                    <div class="w-4 h-4 flex items-center justify-center flex-shrink-0">
                         ${getLinkPreviewIcon(link)}
                     </div>
-                    <span class="text-white font-medium">${link.name}</span>
-                    <span class="text-gray-400 text-sm">${link.url}</span>
+                    <div class="link-info">
+                        <div class="link-name">${link.name}</div>
+                        <div class="link-url" title="${link.url}">${link.url}</div>
+                    </div>
                 </div>
-                <button class="btn btn-danger btn-sm" data-row="${rowIndex}" data-link="${linkIndex}">
-                    <i data-lucide="trash-2" class="h-4 w-4"></i>
-                </button>
+                <div class="link-buttons">
+                    <button class="btn btn-edit btn-sm" data-row="${rowIndex}" data-link="${linkIndex}">
+                        <i data-lucide="edit-2" class="h-4 w-4"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm" data-row="${rowIndex}" data-link="${linkIndex}">
+                        <i data-lucide="trash-2" class="h-4 w-4"></i>
+                    </button>
+                </div>
             `;
             
-            // Add event listener for delete button
+            // Create edit form
+            const editForm = document.createElement('div');
+            editForm.className = 'edit-form';
+            editForm.innerHTML = `
+                <div class="edit-form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-input edit-name" value="${link.name}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">URL</label>
+                        <input type="url" class="form-input edit-url" value="${link.url}" required>
+                    </div>
+                </div>
+                <div class="edit-buttons">
+                    <button class="btn btn-secondary cancel-edit">Cancel</button>
+                    <button class="btn btn-primary save-edit">Save</button>
+                </div>
+            `;
+            
+            linkContainer.appendChild(linkRow);
+            linkContainer.appendChild(editForm);
+            
+            // Add event listeners
             const deleteBtn = linkRow.querySelector('.btn-danger');
+            const editBtn = linkRow.querySelector('.btn-edit');
+            const cancelBtn = editForm.querySelector('.cancel-edit');
+            const saveBtn = editForm.querySelector('.save-edit');
+            
             deleteBtn.addEventListener('click', () => removeLink(rowIndex, linkIndex));
+            editBtn.addEventListener('click', () => toggleEditMode(linkContainer, linkRow, editForm));
+            cancelBtn.addEventListener('click', () => cancelEdit(linkContainer, linkRow, editForm));
+            saveBtn.addEventListener('click', () => saveEdit(linkContainer, linkRow, editForm, rowIndex, linkIndex));
             
             // Add drag and drop event listeners
             linkRow.addEventListener('dragstart', handleDragStart);
@@ -278,18 +318,123 @@ function populateCurrentLinks() {
             linkRow.addEventListener('drop', handleDrop);
             linkRow.addEventListener('dragend', handleDragEnd);
             
-            container.appendChild(linkRow);
+            container.appendChild(linkContainer);
         });
     });
     
     lucide.createIcons();
 }
 
-// Drag and drop functionality
-let draggedElement = null;
-let draggedData = null;
+function toggleEditMode(container, linkRow, editForm) {
+    // Close any other open edit forms
+    const allEditForms = document.querySelectorAll('.edit-form.active');
+    const allLinkRows = document.querySelectorAll('.link-row.editing');
+    
+    allEditForms.forEach(form => {
+        if (form !== editForm) {
+            form.classList.remove('active');
+        }
+    });
+    
+    allLinkRows.forEach(row => {
+        if (row !== linkRow) {
+            row.classList.remove('editing');
+            row.draggable = true;
+        }
+    });
+    
+    // Toggle current edit mode
+    const isEditing = editForm.classList.contains('active');
+    
+    if (isEditing) {
+        editForm.classList.remove('active');
+        linkRow.classList.remove('editing');
+        linkRow.draggable = true;
+    } else {
+        editForm.classList.add('active');
+        linkRow.classList.add('editing');
+        linkRow.draggable = false; // Disable dragging while editing
+        
+        // Focus on the name input
+        const nameInput = editForm.querySelector('.edit-name');
+        setTimeout(() => nameInput.focus(), 100);
+    }
+}
 
+function cancelEdit(container, linkRow, editForm) {
+    editForm.classList.remove('active');
+    linkRow.classList.remove('editing');
+    linkRow.draggable = true;
+    
+    // Reset form values to original
+    const rowIndex = parseInt(linkRow.dataset.rowIndex);
+    const linkIndex = parseInt(linkRow.dataset.linkIndex);
+    const link = rowLinks[rowIndex][linkIndex];
+    
+    editForm.querySelector('.edit-name').value = link.name;
+    editForm.querySelector('.edit-url').value = link.url;
+}
+
+async function saveEdit(container, linkRow, editForm, rowIndex, linkIndex) {
+    const nameInput = editForm.querySelector('.edit-name');
+    const urlInput = editForm.querySelector('.edit-url');
+    
+    const newName = nameInput.value.trim();
+    const newUrl = urlInput.value.trim();
+    
+    // Validate inputs
+    if (!newName || !newUrl) {
+        alert('Please fill in both name and URL');
+        return;
+    }
+    
+    try {
+        // Validate URL format
+        new URL(newUrl);
+    } catch (error) {
+        alert('Please enter a valid URL');
+        return;
+    }
+    
+    // Update the link
+    rowLinks[rowIndex][linkIndex].name = newName;
+    rowLinks[rowIndex][linkIndex].url = newUrl;
+    
+    // Save to storage
+    await saveLinks();
+    
+    // Update the main page
+    await populateLinks();
+    
+    // Update the preview in the current row
+    const linkPreview = linkRow.querySelector('.link-preview');
+    linkPreview.innerHTML = `
+        <div class="w-4 h-4 flex items-center justify-center flex-shrink-0">
+            ${getLinkPreviewIcon(rowLinks[rowIndex][linkIndex])}
+        </div>
+        <div class="link-info">
+            <div class="link-name">${newName}</div>
+            <div class="link-url" title="${newUrl}">${newUrl}</div>
+        </div>
+    `;
+    
+    // Exit edit mode
+    editForm.classList.remove('active');
+    linkRow.classList.remove('editing');
+    linkRow.draggable = true;
+    
+    // Re-initialize lucide icons
+    lucide.createIcons();
+}
+
+// Update drag handlers to respect edit mode
 function handleDragStart(e) {
+    // Don't allow dragging if in edit mode
+    if (this.classList.contains('editing')) {
+        e.preventDefault();
+        return false;
+    }
+    
     draggedElement = this;
     draggedData = {
         rowIndex: parseInt(this.dataset.rowIndex),
@@ -301,6 +446,11 @@ function handleDragStart(e) {
 }
 
 function handleDragOver(e) {
+    // Don't allow dropping on editing rows
+    if (this.classList.contains('editing')) {
+        return false;
+    }
+    
     if (e.preventDefault) {
         e.preventDefault();
     }
