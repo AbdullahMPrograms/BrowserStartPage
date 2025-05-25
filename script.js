@@ -21,7 +21,7 @@ function updateTime() {
 const rowLinks = [
     [
         { name: 'Reddit', url: 'https://reddit.com', type: 'auto' },
-        { name: 'Youtube', url: 'https://www.youtube.com/', type: 'auto' },
+        { name: 'YouTube', url: 'https://www.youtube.com/', type: 'auto' },
         { name: 'Marketplace', url: 'https://www.facebook.com/marketplace/toronto?ref=bookmark', type: 'auto' },
         { name: 'Twitter', url: 'https://twitter.com', icon: 'twitter', color: '#1DA1F2', type: 'simple' }
     ],
