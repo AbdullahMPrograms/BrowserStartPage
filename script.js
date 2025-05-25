@@ -33,7 +33,7 @@ const rowLinks = [
     ],
     [
         { name: 'Github', url: 'https://github.com', icon: 'github', color: '#FFFFFF', type: 'simple' },
-        { name: 'Ebay', url: 'https://www.ebay.ca/', type: 'auto' },
+        { name: 'eBay', url: 'https://www.ebay.ca/', type: 'auto' },
         { name: 'LocalLLaMA', url: 'https://www.reddit.com/r/LocalLLaMA/', icon: 'cpu', color: '#FF4500', type: 'lucide' },
         { name: 'MonkeyType', url: 'https://monkeytype.com', icon: 'monkeytype.png', type: 'local' }
     ],
