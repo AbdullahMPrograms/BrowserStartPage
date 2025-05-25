@@ -35,7 +35,7 @@ const rowLinks = [
         { name: 'Github', url: 'https://github.com', icon: 'github', color: '#FFFFFF', type: 'simple' },
         { name: 'Ebay', url: 'https://www.ebay.ca/', icon: 'ebay.png', color: '#FFFFFF', type: 'local' },
         { name: 'LocalLLaMA', url: 'https://www.reddit.com/r/LocalLLaMA/', icon: 'cpu', color: '#FF4500', type: 'lucide' },
-        { name: 'MonkeyType', url: 'https://monkeytype.com', icon: 'keyboard', color: '#E2B714', type: 'lucide' }
+        { name: 'MonkeyType', url: 'https://monkeytype.com', icon: 'monkeytype.png', color: '#E2B714', type: 'local' }
     ],
     [
         { name: 'AI Studio', url: 'https://aistudio.google.com', icon: 'aistudio.png', color: '#4285F4', type: 'local' },
