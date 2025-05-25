@@ -115,7 +115,7 @@ document.getElementById('search-form').addEventListener('submit', function(e) {
     e.preventDefault();
     const query = document.getElementById('search-input').value.trim();
     if (query) {
-        window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+        window.location.href = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
     }
 });
 
