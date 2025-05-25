@@ -20,29 +20,17 @@ function updateTime() {
 
 const rowLinks = [
     [
-        { name: 'Reddit', url: 'https://reddit.com', icon: 'reddit', color: '#FF4500', type: 'simple' },
-        { name: 'Youtube', url: 'https://www.youtube.com/', icon: 'youtube', color: '#FF0000', type: 'simple' },
-        { name: 'Marketplace', url: 'https://www.facebook.com/marketplace/toronto?ref=bookmark', icon: 'facebook', color: '#0866FF', type: 'simple' },
-        { name: 'Twitter', url: 'https://twitter.com', icon: 'twitter', color: '#1DA1F2', type: 'lucide' }
+        { name: 'Netflix', url: 'https://www.netflix.com/browse', icon: 'netflix', color: '#E50914', type: 'simple' },
+        { name: 'Disney+', url: 'https://www.disneyplus.com/select-profile', icon: 'disney.png', color: '#07b0b9', type: 'local' },
+        { name: 'Prime Video', url: 'https://www.primevideo.com/region/na/storefront', icon: 'prime.png', color: '#00A8E1', type: 'local' },
+        { name: 'Crave', url: 'https://www.crave.ca/en', icon: 'crave.png', color: '#1DA1F2', type: 'local' }
     ],
     [
-        { name: 'Drive', url: 'https://drive.google.com', icon: 'googledrive', color: '#4285F4', type: 'simple' },
+        { name: 'Amazon', url: 'https://www.amazon.ca/', icon: 'amazon', color: '#FF9900', type: 'simple' },
+        { name: 'Reddit', url: 'https://www.reddit.com/r/TorontoMetU/', icon: 'reddit', color: '#FF4500', type: 'simple' },
         { name: 'Courses', url: 'https://courses.torontomu.ca/d2l/home', icon: 'graduation-cap', color: '#F57C00', type: 'lucide' },
-        { name: 'OneNote', url: 'https://www.onenote.com', icon: 'microsoftonenote', color: '#7719AA', type: 'simple' },
-        { name: 'Gmail', url: 'https://gmail.com', icon: 'gmail', color: '#EA4335', type: 'simple' }
+        { name: 'Gmail', url: 'https://mail.google.com/mail/u/0/?tab=rm&ogbl#inbox', icon: 'gmail', color: '#EA4335', type: 'simple' }
     ],
-    [
-        { name: 'Github', url: 'https://github.com', icon: 'github', color: '#FFFFFF', type: 'simple' },
-        { name: 'AI Studio', url: 'https://aistudio.google.com', icon: 'brain', color: '#4285F4', type: 'lucide' },
-        { name: 'LocalLLaMA', url: 'https://www.reddit.com/r/LocalLLaMA/', icon: 'cpu', color: '#FF4500', type: 'lucide' },
-        { name: 'MonkeyType', url: 'https://monkeytype.com', icon: 'keyboard', color: '#E2B714', type: 'lucide' }
-    ],
-    [
-        { name: 'Discord', url: 'https://discord.com/app', icon: 'discord', color: '#5865F2', type: 'simple' },
-        { name: 'Hacker News', url: 'https://news.ycombinator.com/', icon: 'ycombinator', color: '#FF6600', type: 'simple' },
-        { name: 'WSB', url: 'https://www.reddit.com/r/wallstreetbets/', icon: 'reddit', color: '#FF4500', type: 'simple' },
-        { name: 'Music', url: 'https://musicforprogramming.net/latest/', icon: 'headphones', color: '#BA478F', type: 'lucide' }
-    ]
 ];
 
 // Function to load Simple Icon SVG
@@ -60,7 +48,7 @@ async function loadSimpleIcon(iconName) {
 
 async function populateLinks() {
     const container = document.getElementById('links-container');
-    container.innerHTML = ''; // Clear existing content
+    container.innerHTML = '';
     
     for (let rowIndex = 0; rowIndex < rowLinks.length; rowIndex++) {
         const row = rowLinks[rowIndex];
@@ -89,6 +77,9 @@ async function populateLinks() {
                         iconHtml = svg.outerHTML;
                     }
                 }
+            } else if (link.type === 'local') {
+                // Use local image
+                iconHtml = `<img src="images/${link.icon}" alt="${link.name}" class="w-4 h-4 object-contain">`;
             } else {
                 // Use Lucide icon
                 iconHtml = `<i data-lucide="${link.icon}" class="h-4 w-4" style="color: ${link.color}"></i>`;
