@@ -122,6 +122,4 @@ document.getElementById('search-form').addEventListener('submit', function(e) {
 updateTime();
 setInterval(updateTime, 1000);
 
-setTimeout(updateWeather, 1500);
-
 populateLinks();
