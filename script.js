@@ -33,12 +33,12 @@ const rowLinks = [
     ],
     [
         { name: 'Github', url: 'https://github.com', icon: 'github', color: '#FFFFFF', type: 'simple' },
-        { name: 'AI Studio', url: 'https://aistudio.google.com', icon: 'brain', color: '#4285F4', type: 'lucide' },
+        { name: 'Ebay', url: 'https://www.ebay.ca/', icon: 'ebay', color: '#FFFFFF', type: 'simple' },
         { name: 'LocalLLaMA', url: 'https://www.reddit.com/r/LocalLLaMA/', icon: 'cpu', color: '#FF4500', type: 'lucide' },
         { name: 'MonkeyType', url: 'https://monkeytype.com', icon: 'keyboard', color: '#E2B714', type: 'lucide' }
     ],
     [
-        { name: 'Discord', url: 'https://discord.com/app', icon: 'discord', color: '#5865F2', type: 'simple' },
+        { name: 'AI Studio', url: 'https://aistudio.google.com', icon: 'brain', color: '#4285F4', type: 'lucide' },
         { name: 'Hacker News', url: 'https://news.ycombinator.com/', icon: 'ycombinator', color: '#FF6600', type: 'simple' },
         { name: 'WSB', url: 'https://www.reddit.com/r/wallstreetbets/', icon: 'reddit', color: '#FF4500', type: 'simple' },
         { name: 'Music', url: 'https://musicforprogramming.net/latest/', icon: 'headphones', color: '#BA478F', type: 'lucide' }
@@ -60,7 +60,7 @@ async function loadSimpleIcon(iconName) {
 
 async function populateLinks() {
     const container = document.getElementById('links-container');
-    container.innerHTML = ''; // Clear existing content
+    container.innerHTML = '';
     
     for (let rowIndex = 0; rowIndex < rowLinks.length; rowIndex++) {
         const row = rowLinks[rowIndex];
@@ -89,6 +89,9 @@ async function populateLinks() {
                         iconHtml = svg.outerHTML;
                     }
                 }
+            } else if (link.type === 'local') {
+                // Use local image
+                iconHtml = `<img src="images/${link.icon}" alt="${link.name}" class="w-4 h-4 object-contain">`;
             } else {
                 // Use Lucide icon
                 iconHtml = `<i data-lucide="${link.icon}" class="h-4 w-4" style="color: ${link.color}"></i>`;
