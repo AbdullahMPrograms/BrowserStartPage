@@ -18,7 +18,8 @@ function updateTime() {
     document.getElementById('date').textContent = dateStr;
 }
 
-const rowLinks = [
+// Default links configuration
+const defaultRowLinks = [
     [
         { name: 'Reddit', url: 'https://reddit.com', type: 'auto' },
         { name: 'YouTube', url: 'https://www.youtube.com/', type: 'auto' },
@@ -44,6 +45,27 @@ const rowLinks = [
         { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: 'deepseek.png', type: 'local' }
     ]
 ];
+
+// Load links from storage or use default
+let rowLinks = [];
+
+async function loadLinks() {
+    try {
+        const result = await chrome.storage.local.get(['quickLinks']);
+        rowLinks = result.quickLinks || defaultRowLinks;
+    } catch (error) {
+        console.log('Storage not available, using default links');
+        rowLinks = defaultRowLinks;
+    }
+}
+
+async function saveLinks() {
+    try {
+        await chrome.storage.local.set({ quickLinks: rowLinks });
+    } catch (error) {
+        console.log('Could not save links to storage');
+    }
+}
 
 // Function to load Simple Icon SVG
 async function loadSimpleIcon(iconName) {
@@ -110,7 +132,7 @@ async function populateLinks() {
                 if (faviconUrl) {
                     iconHtml = `<img src="${faviconUrl}" alt="${link.name}" class="w-4 h-4 object-contain" onerror="this.style.display='none'">`;
                 }
-            } else {
+            } else if (link.type === 'lucide') {
                 // Use Lucide icon
                 iconHtml = `<i data-lucide="${link.icon}" class="h-4 w-4" style="color: ${link.color}"></i>`;
             }
@@ -131,6 +153,146 @@ async function populateLinks() {
     lucide.createIcons();
 }
 
+// Manage links functionality
+function setupManageLinks() {
+    const manageBtn = document.getElementById('manage-btn');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const closeModal = document.getElementById('close-modal');
+    const addLinkForm = document.getElementById('add-link-form');
+
+    // Show/hide manage button on hover
+    let hoverTimeout;
+    document.addEventListener('mousemove', (e) => {
+        const isNearButton = e.clientX > window.innerWidth - 120 && e.clientY > window.innerHeight - 120;
+        
+        if (isNearButton) {
+            clearTimeout(hoverTimeout);
+            manageBtn.classList.add('visible');
+        } else {
+            hoverTimeout = setTimeout(() => {
+                manageBtn.classList.remove('visible');
+            }, 500);
+        }
+    });
+
+    // Open modal
+    manageBtn.addEventListener('click', () => {
+        modalOverlay.classList.add('active');
+        populateCurrentLinks();
+        document.body.style.overflow = 'hidden';
+    });
+
+    // Close modal
+    closeModal.addEventListener('click', closeModalHandler);
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) {
+            closeModalHandler();
+        }
+    });
+
+    function closeModalHandler() {
+        modalOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+        addLinkForm.reset();
+    }
+
+    // Add new link
+    addLinkForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const name = document.getElementById('link-name').value.trim();
+        const url = document.getElementById('link-url').value.trim();
+        const iconType = document.getElementById('icon-type').value;
+        const iconValue = document.getElementById('icon-value').value.trim();
+
+        const newLink = { name, url, type: iconType };
+
+        if (iconType === 'simple') {
+            const parts = iconValue.split(',').map(p => p.trim());
+            newLink.icon = parts[0];
+            newLink.color = parts[1] || '#FFFFFF';
+        } else if (iconType === 'lucide') {
+            const parts = iconValue.split(',').map(p => p.trim());
+            newLink.icon = parts[0];
+            newLink.color = parts[1] || '#FFFFFF';
+        } else if (iconType === 'local') {
+            newLink.icon = iconValue;
+        }
+
+        // Find the first available spot
+        let placed = false;
+        for (let i = 0; i < rowLinks.length && !placed; i++) {
+            if (rowLinks[i].length < 4) {
+                rowLinks[i].push(newLink);
+                placed = true;
+            }
+        }
+
+        // If no space, create new row
+        if (!placed) {
+            rowLinks.push([newLink]);
+        }
+
+        await saveLinks();
+        await populateLinks();
+        populateCurrentLinks();
+        addLinkForm.reset();
+    });
+}
+
+function populateCurrentLinks() {
+    const container = document.getElementById('current-links');
+    container.innerHTML = '';
+
+    rowLinks.forEach((row, rowIndex) => {
+        row.forEach((link, linkIndex) => {
+            const linkRow = document.createElement('div');
+            linkRow.className = 'link-row';
+            
+            linkRow.innerHTML = `
+                <div class="link-preview">
+                    <div class="w-4 h-4 flex items-center justify-center">
+                        ${getLinkPreviewIcon(link)}
+                    </div>
+                    <span class="text-white font-medium">${link.name}</span>
+                    <span class="text-gray-400 text-sm">${link.url}</span>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="removeLink(${rowIndex}, ${linkIndex})">
+                    <i data-lucide="trash-2" class="h-4 w-4"></i>
+                </button>
+            `;
+            
+            container.appendChild(linkRow);
+        });
+    });
+    
+    lucide.createIcons();
+}
+
+function getLinkPreviewIcon(link) {
+    if (link.type === 'auto') {
+        return `<img src="${getFaviconUrl(link.url)}" alt="" class="w-4 h-4 object-contain">`;
+    } else if (link.type === 'local') {
+        return `<img src="images/${link.icon}" alt="" class="w-4 h-4 object-contain">`;
+    } else if (link.type === 'lucide') {
+        return `<i data-lucide="${link.icon}" class="h-4 w-4" style="color: ${link.color}"></i>`;
+    } else if (link.type === 'simple') {
+        return `<div class="w-4 h-4 bg-gray-500 rounded"></div>`; // Placeholder for simple icons
+    }
+    return '';
+}
+
+async function removeLink(rowIndex, linkIndex) {
+    rowLinks[rowIndex].splice(linkIndex, 1);
+    
+    // Remove empty rows
+    rowLinks = rowLinks.filter(row => row.length > 0);
+    
+    await saveLinks();
+    await populateLinks();
+    populateCurrentLinks();
+}
+
 // Search functionality
 document.getElementById('search-form').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -144,7 +306,13 @@ window.addEventListener('pageshow', function() {
     document.getElementById('search-input').value = '';
 });
 
-updateTime();
-setInterval(updateTime, 1000);
+// Initialize
+async function init() {
+    await loadLinks();
+    updateTime();
+    setInterval(updateTime, 1000);
+    await populateLinks();
+    setupManageLinks();
+}
 
-populateLinks();
+init();
