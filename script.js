@@ -1,6 +1,3 @@
-// Initialize Lucide icons
-lucide.createIcons();
-
 // Time and date updates
 function updateTime() {
     const now = new Date();
@@ -19,43 +16,6 @@ function updateTime() {
     
     document.getElementById('time').textContent = timeStr;
     document.getElementById('date').textContent = dateStr;
-}
-
-// Weather simulation
-function updateWeather() {
-    const conditions = ['Sunny', 'Partly Cloudy', 'Cloudy', 'Rainy'];
-    const randomCondition = conditions[Math.floor(Math.random() * conditions.length)];
-    const randomTemp = Math.floor(Math.random() * 15) + 15;
-    
-    document.getElementById('temp').textContent = randomTemp + '°C';
-    document.getElementById('condition').textContent = randomCondition;
-    
-    const weatherIcon = document.getElementById('weather-icon');
-    let iconName = 'cloud';
-    let iconColor = 'text-blue-300';
-    
-    switch (randomCondition) {
-        case 'Sunny':
-            iconName = 'sun';
-            iconColor = 'text-yellow-300';
-            break;
-        case 'Partly Cloudy':
-            iconName = 'cloud-sun';
-            iconColor = 'text-blue-200';
-            break;
-        case 'Cloudy':
-            iconName = 'cloud';
-            iconColor = 'text-blue-300';
-            break;
-        case 'Rainy':
-            iconName = 'cloud-rain';
-            iconColor = 'text-indigo-300';
-            break;
-    }
-    
-    weatherIcon.innerHTML = `<i data-lucide="${iconName}" class="h-7 w-7 ${iconColor}"></i>`;
-    document.getElementById('temp').className = `text-2xl font-semibold ${iconColor}`;
-    lucide.createIcons();
 }
 
 const rowLinks = [
@@ -98,7 +58,6 @@ async function loadSimpleIcon(iconName) {
     return null;
 }
 
-// Populate links with appropriate icon type
 async function populateLinks() {
     const container = document.getElementById('links-container');
     container.innerHTML = ''; // Clear existing content
@@ -112,8 +71,6 @@ async function populateLinks() {
             const link = row[linkIndex];
             const linkElement = document.createElement('a');
             linkElement.href = link.url;
-            linkElement.target = '_blank';
-            linkElement.rel = 'noopener noreferrer';
             linkElement.className = 'flex items-center gap-2 group link-item p-2 rounded hover:bg-gray-700 hover:bg-opacity-50';
             
             let iconHtml = '';
@@ -150,7 +107,6 @@ async function populateLinks() {
         container.appendChild(rowDiv);
     }
     
-    // Initialize Lucide icons
     lucide.createIcons();
 }
 
@@ -163,7 +119,6 @@ document.getElementById('search-form').addEventListener('submit', function(e) {
     }
 });
 
-// Initialize everything
 updateTime();
 setInterval(updateTime, 1000);
 
