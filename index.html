@@ -116,6 +116,13 @@
             overflow-y: auto;
             transform: scale(0.9);
             transition: transform 0.3s ease;
+            /* Hide scrollbar */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* Internet Explorer 10+ */
+        }
+        .modal::-webkit-scrollbar {
+            width: 0; /* Chrome, Safari, Opera */
+            display: none;
         }
         .modal-overlay.active .modal {
             transform: scale(1);
