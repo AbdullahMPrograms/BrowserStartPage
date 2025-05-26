@@ -357,10 +357,12 @@
                         <div class="form-group">
                             <label class="form-label">Name</label>
                             <input type="text" id="link-name" class="form-input" placeholder="Enter link name" required>
+                            <small class="text-xs text-gray-400 mt-1 block">Display name for your quick link</small>
                         </div>
                         <div class="form-group">
                             <label class="form-label">URL</label>
                             <input type="url" id="link-url" class="form-input" placeholder="https://example.com" required>
+                            <small class="text-xs text-gray-400 mt-1 block">Full website URL including https://</small>
                         </div>
                     </div>
                     
@@ -372,25 +374,26 @@
                             <option value="lucide">Lucide Icons</option>
                             <option value="local">Local Image</option>
                         </select>
+                        <small class="text-xs text-gray-400 mt-1 block">Choose icon type for this link</small>
                     </div>
                     
                     <div id="icon-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4" style="display: none;">
                         <div class="form-group">
                             <label class="form-label">Icon Name</label>
                             <input type="text" id="icon-name" class="form-input" placeholder="Enter icon name">
-                            <small id="icon-help" class="text-xs text-gray-400 mt-1">Enter the icon name</small>
+                            <small id="icon-help" class="text-xs text-gray-400 mt-1 block">Enter the icon name</small>
                         </div>
                         <div class="form-group" id="color-field">
                             <label class="form-label">Color</label>
                             <input type="text" id="icon-color" class="form-input" placeholder="#FFFFFF or color name">
-                            <small class="text-xs text-gray-400 mt-1">Hex color code or color name</small>
+                            <small class="text-xs text-gray-400 mt-1 block">Hex color code (#FF0000) or CSS color name (red)</small>
                         </div>
                     </div>
                     
                     <div id="local-field" class="form-group" style="display: none;">
                         <label class="form-label">Image Filename</label>
                         <input type="text" id="local-filename" class="form-input" placeholder="image.png">
-                        <small class="text-xs text-gray-400 mt-1">Filename of image in the images folder</small>
+                        <small class="text-xs text-gray-400 mt-1 block">Filename of image in the images folder (e.g., logo.png)</small>
                     </div>
                     
                     <div class="flex justify-center mt-6">
