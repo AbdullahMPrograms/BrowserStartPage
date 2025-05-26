@@ -18,44 +18,16 @@ function updateTime() {
     document.getElementById('date').textContent = dateStr;
 }
 
-// Default links configuration
-const defaultRowLinks = [
-    [
-        { name: 'Reddit', url: 'https://reddit.com', type: 'auto' },
-        { name: 'YouTube', url: 'https://www.youtube.com/', type: 'auto' },
-        { name: 'Marketplace', url: 'https://www.facebook.com/marketplace/toronto?ref=bookmark', type: 'auto' },
-        { name: 'Twitter', url: 'https://twitter.com', icon: 'twitter', color: '#1DA1F2', type: 'simple' }
-    ],
-    [
-        { name: 'Drive', url: 'https://drive.google.com', icon: 'drive.png', type: 'local' },
-        { name: 'Courses', url: 'https://courses.torontomu.ca/d2l/home', icon: 'tmu.png', type: 'local' },
-        { name: 'OneNote', url: 'https://www.onenote.com', type: 'auto' },
-        { name: 'Gmail', url: 'https://gmail.com', icon: 'gmail.png', type: 'local' }
-    ],
-    [
-        { name: 'Github', url: 'https://github.com', icon: 'github', color: '#FFFFFF', type: 'simple' },
-        { name: 'eBay', url: 'https://www.ebay.ca/', type: 'auto' },
-        { name: 'LocalLLaMA', url: 'https://www.reddit.com/r/LocalLLaMA/', icon: 'cpu', color: '#FF4500', type: 'lucide' },
-        { name: 'MonkeyType', url: 'https://monkeytype.com', icon: 'monkeytype.png', type: 'local' }
-    ],
-    [
-        { name: 'AI Studio', url: 'https://aistudio.google.com', icon: 'aistudio.png',  type: 'local' },
-        { name: 'Claude', url: 'https://claude.ai/', type: 'auto' },
-        { name: 'ChatGPT', url: 'https://chatgpt.com/', icon: 'openai', color: '#FFFFFF', type: 'simple' },
-        { name: 'DeepSeek', url: 'https://chat.deepseek.com/', icon: 'deepseek.png', type: 'local' }
-    ]
-];
-
-// Load links from storage or use default
+// Load links from storage or use empty array
 let rowLinks = [];
 
 async function loadLinks() {
     try {
         const result = await chrome.storage.local.get(['quickLinks']);
-        rowLinks = result.quickLinks || defaultRowLinks;
+        rowLinks = result.quickLinks || [];
     } catch (error) {
-        console.log('Storage not available, using default links');
-        rowLinks = defaultRowLinks;
+        console.log('Storage not available, using empty links');
+        rowLinks = [];
     }
 }
 
@@ -288,7 +260,6 @@ function setupManageLinks() {
         await populateLinks();
         populateCurrentLinks();
         addLinkForm.reset();
-        // Reset conditional fields
         iconFields.style.display = 'none';
         localField.style.display = 'none';
         colorField.style.display = 'none';
@@ -356,7 +327,6 @@ function populateCurrentLinks() {
             linkContainer.appendChild(linkRow);
             linkContainer.appendChild(editForm);
             
-            // Add event listeners
             const deleteBtn = linkRow.querySelector('.btn-danger');
             const editBtn = linkRow.querySelector('.btn-edit');
             const cancelBtn = editForm.querySelector('.cancel-edit');
@@ -367,9 +337,9 @@ function populateCurrentLinks() {
             cancelBtn.addEventListener('click', () => cancelEdit(linkContainer, linkRow, editForm));
             saveBtn.addEventListener('click', () => saveEdit(linkContainer, linkRow, editForm, rowIndex, linkIndex));
             
-            // Add drag and drop event listeners
             linkRow.addEventListener('dragstart', handleDragStart);
             linkRow.addEventListener('dragover', handleDragOver);
+            linkRow.addEventListener('dragleave', handleDragLeave);
             linkRow.addEventListener('drop', handleDrop);
             linkRow.addEventListener('dragend', handleDragEnd);
             
@@ -482,7 +452,18 @@ async function saveEdit(container, linkRow, editForm, rowIndex, linkIndex) {
     lucide.createIcons();
 }
 
-// Update drag handlers to respect edit mode
+// Drag and drop functionality
+let draggedElement = null;
+let draggedData = null;
+let dragIndicator = null;
+
+function createDragIndicator() {
+    const indicator = document.createElement('div');
+    indicator.className = 'drag-indicator';
+    indicator.innerHTML = '<div class="drag-indicator-line"></div>';
+    return indicator;
+}
+
 function handleDragStart(e) {
     // Don't allow dragging if in edit mode
     if (this.classList.contains('editing')) {
@@ -496,8 +477,16 @@ function handleDragStart(e) {
         linkIndex: parseInt(this.dataset.linkIndex)
     };
     
-    this.style.opacity = '0.5';
+    // Create drag indicator
+    dragIndicator = createDragIndicator();
+    
+    // Style the dragged element
+    this.style.opacity = '0.4';
+    this.style.transform = 'rotate(2deg)';
+    this.classList.add('dragging');
+    
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.outerHTML);
 }
 
 function handleDragOver(e) {
@@ -512,10 +501,41 @@ function handleDragOver(e) {
     
     e.dataTransfer.dropEffect = 'move';
     
-    // Add visual feedback
-    this.style.borderTop = '2px solid #6366f1';
+    // Remove previous indicators
+    const existingIndicators = document.querySelectorAll('.drag-indicator');
+    existingIndicators.forEach(indicator => indicator.remove());
+    
+    // Don't show indicator on the dragged element itself
+    if (this === draggedElement) {
+        return false;
+    }
+    
+    // Add visual feedback - insert indicator
+    const rect = this.getBoundingClientRect();
+    const midPoint = rect.top + rect.height / 2;
+    const mouseY = e.clientY;
+    
+    if (mouseY < midPoint) {
+        // Insert before this element
+        this.parentNode.insertBefore(dragIndicator, this);
+    } else {
+        // Insert after this element
+        this.parentNode.insertBefore(dragIndicator, this.nextSibling);
+    }
+    
+    // Add hover effect to current row
+    this.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
+    this.style.borderColor = 'rgba(99, 102, 241, 0.3)';
     
     return false;
+}
+
+function handleDragLeave(e) {
+    // Remove hover effects
+    if (!this.classList.contains('dragging')) {
+        this.style.backgroundColor = '';
+        this.style.borderColor = '';
+    }
 }
 
 function handleDrop(e) {
@@ -523,9 +543,19 @@ function handleDrop(e) {
         e.stopPropagation();
     }
     
+    // Remove all indicators
+    const existingIndicators = document.querySelectorAll('.drag-indicator');
+    existingIndicators.forEach(indicator => indicator.remove());
+    
     if (draggedElement !== this) {
         const targetRowIndex = parseInt(this.dataset.rowIndex);
         const targetLinkIndex = parseInt(this.dataset.linkIndex);
+        
+        // Determine if we're inserting before or after based on indicator position
+        const rect = this.getBoundingClientRect();
+        const midPoint = rect.top + rect.height / 2;
+        const mouseY = e.clientY;
+        const insertAfter = mouseY >= midPoint;
         
         // Get the dragged link
         const draggedLink = rowLinks[draggedData.rowIndex][draggedData.linkIndex];
@@ -540,23 +570,25 @@ function handleDrop(e) {
         let newTargetRowIndex = targetRowIndex;
         let newTargetLinkIndex = targetLinkIndex;
         
-        // If we removed from a row before the target, adjust indices
+        // Adjust indices if we removed from before the target
         if (draggedData.rowIndex < targetRowIndex) {
-            // Check if the target row still exists after cleanup
             if (newTargetRowIndex >= rowLinks.length) {
                 newTargetRowIndex = rowLinks.length - 1;
                 newTargetLinkIndex = rowLinks[newTargetRowIndex].length;
             }
         } else if (draggedData.rowIndex === targetRowIndex && draggedData.linkIndex < targetLinkIndex) {
-            // Same row, dragged from before target
             newTargetLinkIndex = targetLinkIndex - 1;
+        }
+        
+        // Adjust for insert position
+        if (insertAfter && newTargetLinkIndex < rowLinks[newTargetRowIndex].length) {
+            newTargetLinkIndex++;
         }
         
         // Insert the link at the new position
         if (newTargetRowIndex < rowLinks.length) {
             rowLinks[newTargetRowIndex].splice(newTargetLinkIndex, 0, draggedLink);
         } else {
-            // Add to end of last row or create new row
             if (rowLinks.length > 0) {
                 rowLinks[rowLinks.length - 1].push(draggedLink);
             } else {
@@ -574,17 +606,27 @@ function handleDrop(e) {
 }
 
 function handleDragEnd(e) {
-    // Reset styles
-    this.style.opacity = '';
+    // Reset styles for dragged element
+    if (this) {
+        this.style.opacity = '';
+        this.style.transform = '';
+        this.classList.remove('dragging');
+    }
     
-    // Remove visual feedback from all elements
+    // Remove all visual feedback
     const allRows = document.querySelectorAll('.link-row');
     allRows.forEach(row => {
-        row.style.borderTop = '';
+        row.style.backgroundColor = '';
+        row.style.borderColor = '';
     });
+    
+    // Remove any remaining indicators
+    const existingIndicators = document.querySelectorAll('.drag-indicator');
+    existingIndicators.forEach(indicator => indicator.remove());
     
     draggedElement = null;
     draggedData = null;
+    dragIndicator = null;
 }
 
 function getLinkPreviewIcon(link) {
