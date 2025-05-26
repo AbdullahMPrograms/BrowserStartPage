@@ -136,6 +136,10 @@ function setupManageLinks() {
     const localField = document.getElementById('local-field');
     const colorField = document.getElementById('color-field');
     const iconHelp = document.getElementById('icon-help');
+    const exportBtn = document.getElementById('export-btn');
+    const importBtn = document.getElementById('import-btn');
+    const importFile = document.getElementById('import-file');
+    const clearAllBtn = document.getElementById('clear-all-btn');
 
     // Handle icon type changes
     iconTypeSelect.addEventListener('change', function() {
@@ -263,6 +267,30 @@ function setupManageLinks() {
         iconFields.style.display = 'none';
         localField.style.display = 'none';
         colorField.style.display = 'none';
+    });
+
+    // Export functionality
+    exportBtn.addEventListener('click', () => {
+        exportLinks();
+    });
+
+    // Import functionality
+    importBtn.addEventListener('click', () => {
+        importFile.click();
+    });
+
+    importFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            importLinks(file);
+        }
+    });
+
+    // Clear all functionality
+    clearAllBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all links? This action cannot be undone.')) {
+            clearAllLinks();
+        }
     });
 }
 
@@ -651,6 +679,106 @@ async function removeLink(rowIndex, linkIndex) {
     await saveLinks();
     await populateLinks();
     populateCurrentLinks();
+}
+
+// Export links to JSON file
+function exportLinks() {
+    const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        links: rowLinks
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `quick-links-${new Date().toISOString().split('T')[0]}.json`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clean up object URL
+    URL.revokeObjectURL(link.href);
+}
+
+// Import links from JSON file
+async function importLinks(file) {
+    try {
+        const text = await file.text();
+        const importData = JSON.parse(text);
+        
+        // Validate import data structure
+        if (!importData.links || !Array.isArray(importData.links)) {
+            throw new Error('Invalid file format: missing or invalid links array');
+        }
+        
+        // Validate each link has required properties
+        for (const row of importData.links) {
+            if (!Array.isArray(row)) {
+                throw new Error('Invalid file format: each row must be an array');
+            }
+            
+            for (const link of row) {
+                if (!link.name || !link.url || !link.type) {
+                    throw new Error('Invalid file format: each link must have name, url, and type properties');
+                }
+                
+                // Validate link types
+                if (!['auto', 'simple', 'lucide', 'local'].includes(link.type)) {
+                    throw new Error(`Invalid link type: ${link.type}`);
+                }
+                
+                // Validate URL format
+                try {
+                    new URL(link.url);
+                } catch (urlError) {
+                    throw new Error(`Invalid URL format: ${link.url}`);
+                }
+                
+                // Validate type-specific properties
+                if ((link.type === 'simple' || link.type === 'lucide') && !link.icon) {
+                    throw new Error(`Missing icon property for ${link.type} type link: ${link.name}`);
+                }
+                
+                if (link.type === 'local' && !link.icon) {
+                    throw new Error(`Missing icon property for local type link: ${link.name}`);
+                }
+            }
+        }
+        
+        // Show confirmation dialog
+        const linkCount = importData.links.reduce((total, row) => total + row.length, 0);
+        const confirmMessage = `Import ${linkCount} links? This will replace all current links.`;
+        
+        if (confirm(confirmMessage)) {
+            rowLinks = importData.links;
+            await saveLinks();
+            await populateLinks();
+            populateCurrentLinks();
+            
+            alert(`Successfully imported ${linkCount} links!`);
+        }
+        
+    } catch (error) {
+        console.error('Import error:', error);
+        alert(`Import failed: ${error.message}`);
+    }
+    
+    // Clear the file input
+    importFile.value = '';
+}
+
+// Clear all links
+async function clearAllLinks() {
+    rowLinks = [];
+    await saveLinks();
+    await populateLinks();
+    populateCurrentLinks();
+    
+    alert('All links have been cleared.');
 }
 
 // Search functionality

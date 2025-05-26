@@ -409,6 +409,35 @@
                     <!-- Links will be populated here -->
                 </div>
             </div>
+
+            <!-- Import/Export Section -->
+            <div class="mt-6 p-4 bg-gray-800 bg-opacity-50 rounded-lg">
+                <h3 class="text-lg font-semibold text-white mb-4">Import/Export Links</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <button id="export-btn" class="btn btn-secondary w-full flex items-center justify-center">
+                            <i data-lucide="download" class="h-4 w-4 mr-2"></i>
+                            Export Links
+                        </button>
+                        <small class="text-xs text-gray-400 mt-1 block">Download all links as JSON file</small>
+                    </div>
+                    <div>
+                        <input type="file" id="import-file" accept=".json" class="hidden">
+                        <button id="import-btn" class="btn btn-secondary w-full flex items-center justify-center">
+                            <i data-lucide="upload" class="h-4 w-4 mr-2"></i>
+                            Import Links
+                        </button>
+                        <small class="text-xs text-gray-400 mt-1 block">Upload JSON file to import links</small>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button id="clear-all-btn" class="btn btn-danger w-full flex items-center justify-center">
+                        <i data-lucide="trash-2" class="h-4 w-4 mr-2"></i>
+                        Clear All Links
+                    </button>
+                    <small class="text-xs text-gray-400 mt-1 block">Remove all quick links (cannot be undone)</small>
+                </div>
+            </div>
         </div>
     </div>
 
