@@ -296,7 +296,20 @@ function setupManageLinks() {
 
 function populateCurrentLinks() {
     const container = document.getElementById('current-links');
+    const header = container.previousElementSibling; // Get the h3 header element
     container.innerHTML = '';
+
+    // Check if there are any links
+    const hasLinks = rowLinks.length > 0 && rowLinks.some(row => row.length > 0);
+    
+    if (hasLinks) {
+        header.style.display = 'block';
+        container.style.display = 'block';
+    } else {
+        header.style.display = 'none';
+        container.style.display = 'none';
+        return;
+    }
 
     rowLinks.forEach((row, rowIndex) => {
         row.forEach((link, linkIndex) => {
