@@ -665,7 +665,7 @@ function getLinkPreviewIcon(link) {
     } else if (link.type === 'lucide') {
         return `<i data-lucide="${link.icon}" class="h-4 w-4" style="color: ${link.color}"></i>`;
     } else if (link.type === 'simple') {
-        return `<div class="w-4 h-4 bg-gray-500 rounded"></div>`; // Placeholder for simple icons
+        return `<div class="w-4 h-4 bg-gray-500 rounded"></div>`;
     }
     return '';
 }

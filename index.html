@@ -254,14 +254,14 @@
             align-items: center;
             gap: 8px;
             flex: 1;
-            min-width: 0; /* Allow flex item to shrink below content size */
+            min-width: 0;
         }
         .link-info {
             display: flex;
             flex-direction: column;
             gap: 2px;
             flex: 1;
-            min-width: 0; /* Allow flex item to shrink below content size */
+            min-width: 0;
         }
         .link-name {
             color: white;
@@ -281,7 +281,7 @@
         .link-buttons {
             display: flex;
             gap: 8px;
-            flex-shrink: 0; /* Prevent buttons from shrinking */
+            flex-shrink: 0;
         }
         .drag-handle {
             display: flex;
@@ -290,7 +290,7 @@
             cursor: grab;
             padding: 4px;
             border-radius: 4px;
-            flex-shrink: 0; /* Prevent drag handle from shrinking */
+            flex-shrink: 0; 
         }
         .drag-handle:hover {
             background: rgba(75, 85, 99, 0.5);
@@ -339,7 +339,7 @@
         <i data-lucide="plus" class="h-6 w-6 text-white"></i>
     </div>
 
-    <!-- Manage Links Modal -->
+     <!-- Manage Links Modal -->
     <div id="modal-overlay" class="modal-overlay">
         <div class="modal">
             <div class="flex justify-between items-center mb-6">
@@ -415,7 +415,7 @@
 
             <!-- Import/Export Section -->
             <div class="mt-6 p-4 bg-gray-800 bg-opacity-50 rounded-lg">
-                <h3 class="text-lg font-semibold text-white mb-4">Import/Export Links</h3>
+                <h3 class="text-lg font-semibold text-white mb-2">Import/Export Links</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <button id="export-btn" class="btn btn-secondary w-full flex items-center justify-center">
