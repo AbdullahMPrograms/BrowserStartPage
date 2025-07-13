@@ -227,7 +227,7 @@ function setupManageLinks() {
     const backgroundUpload = document.getElementById('background-upload');
     const uploadBackgroundBtn = document.getElementById('upload-background-btn');
     const backgroundPreview = document.getElementById('background-preview');
-    const backgroundPreviewImg = document.getElementById('background-preview-img');
+    let backgroundPreviewImg = document.getElementById('background-preview-img');
     const backgroundPreviewName = document.getElementById('background-preview-name');
     const backgroundPreviewSize = document.getElementById('background-preview-size');
     const cancelBackgroundUpload = document.getElementById('cancel-background-upload');
@@ -815,7 +815,6 @@ function setupManageLinks() {
         // Show preview
         const reader = new FileReader();
         reader.onload = function(e) {
-            backgroundPreviewImg.src = e.target.result;
             backgroundPreviewName.textContent = file.name;
             backgroundPreviewSize.textContent = formatFileSize(file.size);
             
@@ -830,6 +829,17 @@ function setupManageLinks() {
                 backgroundPreviewImg.parentNode.replaceChild(video, backgroundPreviewImg);
                 // Keep reference for future use
                 backgroundPreviewImg = video;
+            } else {
+                // For images, make sure we have an img element
+                if (backgroundPreviewImg.tagName !== 'IMG') {
+                    const img = document.createElement('img');
+                    img.id = 'background-preview-img';
+                    img.alt = 'Preview';
+                    img.className = 'w-16 h-12 object-cover border border-gray-600/50 rounded bg-gray-900/50';
+                    backgroundPreviewImg.parentNode.replaceChild(img, backgroundPreviewImg);
+                    backgroundPreviewImg = img;
+                }
+                backgroundPreviewImg.src = e.target.result;
             }
             
             backgroundPreview.style.display = 'block';
