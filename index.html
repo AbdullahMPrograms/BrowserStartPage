@@ -387,6 +387,97 @@
             opacity: 0.6;
             cursor: not-allowed;
         }
+        
+        /* Background image management styles */
+        .background-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid rgba(75, 85, 99, 0.6);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            aspect-ratio: 16/9;
+        }
+        
+        .background-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border-color: #6366f1;
+        }
+        
+        .background-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .background-item-name {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 8px;
+            font-size: 10px;
+            color: #d1d5db;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+        }
+        
+        .background-item-delete {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(220, 38, 38, 0.8);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .background-item:hover .background-item-delete {
+            opacity: 1;
+        }
+        
+        .background-item-delete:hover {
+            background: rgba(220, 38, 38, 1);
+        }
+        
+        .background-item.selected {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+        
+        .background-item.current {
+            border-color: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+        
+        .background-item.current::after {
+            content: '✓';
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: #10b981;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="bg min-h-screen flex flex-col items-center justify-center p-4">
@@ -596,6 +687,58 @@
                         Clear All Images
                     </button>
                     <small class="text-xs text-gray-400 mt-1 block">Remove all uploaded images (cannot be undone)</small>
+                </div>
+            </div>
+
+            <!-- Background Management Section -->
+            <div class="mt-6 p-4 bg-gray-800 bg-opacity-50 rounded-lg">
+                <h3 class="text-lg font-semibold text-white mb-4">Manage Background Images</h3>
+                
+                <!-- Upload new background section -->
+                <div class="mb-6 p-4 bg-gray-700 bg-opacity-50 rounded-lg border border-gray-600">
+                    <h4 class="text-md font-medium text-white mb-3">Upload New Background</h4>
+                    <div class="flex flex-col sm:flex-row gap-3 items-start">
+                        <div class="flex-1">
+                            <input type="file" id="background-upload" class="form-input" accept="image/*">
+                            <small class="text-xs text-gray-400 mt-1 block">Upload a background image (PNG, JPG, GIF, WebP) - Max 10MB</small>
+                        </div>
+                        <button id="upload-background-btn" class="btn btn-primary flex items-center justify-center px-6">
+                            <i data-lucide="upload" class="h-4 w-4 mr-2"></i>
+                            Upload
+                        </button>
+                    </div>
+                    <div id="background-preview" style="display: none;" class="mt-3 p-3 bg-gray-800 bg-opacity-50 rounded-lg">
+                        <label class="form-label">Preview:</label>
+                        <div class="flex items-center gap-3">
+                            <img id="background-preview-img" src="" alt="Preview" class="w-16 h-12 object-cover border border-gray-600 rounded">
+                            <div class="flex-1">
+                                <div id="background-preview-name" class="text-sm text-gray-300"></div>
+                                <div id="background-preview-size" class="text-xs text-gray-400"></div>
+                            </div>
+                            <button type="button" id="cancel-background-upload" class="btn btn-secondary btn-sm">
+                                <i data-lucide="x" class="h-3 w-3"></i>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current background selection -->
+                <div class="mb-4">
+                    <h4 class="text-md font-medium text-white mb-3">Current Background</h4>
+                </div>
+
+                <!-- Background images grid -->
+                <div id="background-images-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
+                    <!-- Background images will be displayed here -->
+                </div>
+                
+                <div class="text-center">
+                    <button id="clear-backgrounds-btn" class="btn btn-danger flex items-center justify-center mx-auto">
+                        <i data-lucide="trash-2" class="h-4 w-4 mr-2"></i>
+                        Clear All Backgrounds
+                    </button>
+                    <small class="text-xs text-gray-400 mt-1 block">Remove all uploaded backgrounds (cannot be undone)</small>
                 </div>
             </div>
         </div>

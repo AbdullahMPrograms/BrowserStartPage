@@ -21,6 +21,8 @@ function updateTime() {
 // Load links from storage or use empty array
 let rowLinks = [];
 let uploadedImages = {}; // Store uploaded images as { id: { name, data, timestamp } }
+let backgroundImages = {}; // Store background images as { id: { name, data, timestamp } }
+let currentBackground = 'default'; // Current background ID
 
 async function loadLinks() {
     try {
@@ -42,6 +44,18 @@ async function loadUploadedImages() {
     }
 }
 
+async function loadBackgroundImages() {
+    try {
+        const result = await chrome.storage.local.get(['backgroundImages', 'currentBackground']);
+        backgroundImages = result.backgroundImages || {};
+        currentBackground = result.currentBackground || 'default';
+    } catch (error) {
+        console.log('Storage not available, using default background');
+        backgroundImages = {};
+        currentBackground = 'default';
+    }
+}
+
 async function saveLinks() {
     try {
         await chrome.storage.local.set({ quickLinks: rowLinks });
@@ -55,6 +69,17 @@ async function saveUploadedImages() {
         await chrome.storage.local.set({ uploadedImages: uploadedImages });
     } catch (error) {
         console.log('Could not save images to storage');
+    }
+}
+
+async function saveBackgroundImages() {
+    try {
+        await chrome.storage.local.set({ 
+            backgroundImages: backgroundImages,
+            currentBackground: currentBackground 
+        });
+    } catch (error) {
+        console.log('Could not save background images to storage');
     }
 }
 
@@ -185,6 +210,16 @@ function setupManageLinks() {
     const managementPreviewSize = document.getElementById('management-preview-size');
     const cancelUpload = document.getElementById('cancel-upload');
 
+    // Background management elements
+    const backgroundUpload = document.getElementById('background-upload');
+    const uploadBackgroundBtn = document.getElementById('upload-background-btn');
+    const backgroundPreview = document.getElementById('background-preview');
+    const backgroundPreviewImg = document.getElementById('background-preview-img');
+    const backgroundPreviewName = document.getElementById('background-preview-name');
+    const backgroundPreviewSize = document.getElementById('background-preview-size');
+    const cancelBackgroundUpload = document.getElementById('cancel-background-upload');
+    const clearBackgroundsBtn = document.getElementById('clear-backgrounds-btn');
+
     // Handle icon type changes
     iconTypeSelect.addEventListener('change', function() {
         const selectedType = this.value;
@@ -227,6 +262,11 @@ function setupManageLinks() {
     managementImageUpload.addEventListener('change', handleManagementImageSelect);
     uploadImageBtn.addEventListener('click', handleManagementImageUpload);
     cancelUpload.addEventListener('click', resetManagementUpload);
+
+    // Background management handlers
+    backgroundUpload.addEventListener('change', handleBackgroundSelect);
+    uploadBackgroundBtn.addEventListener('click', handleBackgroundUpload);
+    cancelBackgroundUpload.addEventListener('click', resetBackgroundUpload);
 
     // Helper functions for image upload
     function resetImageUpload() {
@@ -463,6 +503,96 @@ function setupManageLinks() {
         });
     }
 
+    // Background management functions
+    function resetBackgroundUpload() {
+        backgroundUpload.value = '';
+        backgroundPreview.style.display = 'none';
+        backgroundPreviewImg.src = '';
+        backgroundPreviewName.textContent = '';
+        backgroundPreviewSize.textContent = '';
+        uploadBackgroundBtn.disabled = false;
+    }
+
+    function handleBackgroundSelect(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            resetBackgroundUpload();
+            return;
+        }
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select a valid image file');
+            resetBackgroundUpload();
+            return;
+        }
+
+        // Validate file size (max 10MB for backgrounds)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('Background image file size must be less than 10MB');
+            resetBackgroundUpload();
+            return;
+        }
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            backgroundPreviewImg.src = e.target.result;
+            backgroundPreviewName.textContent = file.name;
+            backgroundPreviewSize.textContent = formatFileSize(file.size);
+            backgroundPreview.style.display = 'block';
+            uploadBackgroundBtn.disabled = false;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function handleBackgroundUpload() {
+        const file = backgroundUpload.files[0];
+        if (!file) return;
+
+        uploadBackgroundBtn.disabled = true;
+        uploadBackgroundBtn.innerHTML = '<i data-lucide="loader-2" class="h-4 w-4 mr-2 animate-spin"></i>Uploading...';
+
+        try {
+            // Read file as data URL
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const imageData = e.target.result;
+                const imageId = generateImageId();
+                
+                // Store the background image
+                backgroundImages[imageId] = {
+                    name: file.name,
+                    data: imageData,
+                    timestamp: Date.now()
+                };
+
+                await saveBackgroundImages();
+                
+                // Update UI elements
+                populateBackgroundGrid();
+                
+                // Reset the upload form
+                resetBackgroundUpload();
+                
+                // Show success message
+                showUploadSuccess(file.name + ' (Background)');
+                
+                // Re-enable button
+                uploadBackgroundBtn.disabled = false;
+                uploadBackgroundBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
+                lucide.createIcons();
+            };
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error uploading background:', error);
+            alert('Error uploading background. Please try again.');
+            uploadBackgroundBtn.disabled = false;
+            uploadBackgroundBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
+            lucide.createIcons();
+        }
+    }
+
     function populateUploadedImagesSelect() {
         uploadedImagesSelect.innerHTML = '<option value="">Choose an uploaded image...</option>';
         
@@ -493,6 +623,20 @@ function setupManageLinks() {
         }
     });
 
+    // Clear background images handler
+    clearBackgroundsBtn.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to clear all background images? This action cannot be undone.')) {
+            backgroundImages = {};
+            currentBackground = 'default';
+            await saveBackgroundImages();
+            populateBackgroundGrid();
+            resetBackgroundUpload();
+            applyBackgroundToPage();
+            
+            alert('All background images have been cleared.');
+        }
+    });
+
     // Show/hide manage button on hover
     let hoverTimeout;
     document.addEventListener('mousemove', (e) => {
@@ -514,6 +658,7 @@ function setupManageLinks() {
         populateCurrentLinks();
         populateUploadedImagesGrid();
         populateUploadedImagesSelect();
+        populateBackgroundGrid();
         document.body.style.overflow = 'hidden';
     });
 
@@ -535,6 +680,7 @@ function setupManageLinks() {
         uploadField.style.display = 'none';
         colorField.style.display = 'none';
         resetImageUpload();
+        resetBackgroundUpload();
     }
 
     // Add new link
@@ -822,6 +968,81 @@ function populateUploadedImagesGrid() {
     });
 
     lucide.createIcons();
+}
+
+// Function to populate the background images grid
+function populateBackgroundGrid() {
+    const grid = document.getElementById('background-images-grid');
+    grid.innerHTML = '';
+
+    const imageCount = Object.keys(backgroundImages).length;
+    if (imageCount === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center text-gray-400 text-sm py-8">No background images uploaded</div>';
+        return;
+    }
+
+    Object.entries(backgroundImages).forEach(([id, image]) => {
+        const imageItem = document.createElement('div');
+        imageItem.className = `background-item ${id === currentBackground ? 'current' : ''}`;
+        imageItem.innerHTML = `
+            <img src="${image.data}" alt="${image.name}" title="${image.name}">
+            <div class="background-item-name">${image.name}</div>
+            <button class="background-item-delete" data-image-id="${id}" title="Delete background">
+                <i data-lucide="x" class="h-4 w-4 text-white"></i>
+            </button>
+        `;
+
+        const deleteBtn = imageItem.querySelector('.background-item-delete');
+        deleteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (confirm(`Delete background "${image.name}"?`)) {
+                const wasCurrentBackground = id === currentBackground;
+                delete backgroundImages[id];
+                
+                // If we deleted the current background, reset to default
+                if (wasCurrentBackground) {
+                    currentBackground = 'default';
+                    applyBackgroundToPage();
+                }
+                
+                await saveBackgroundImages();
+                populateBackgroundGrid();
+            }
+        });
+
+        // Click to set as current background
+        imageItem.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('background-item-delete') || e.target.closest('.background-item-delete')) {
+                return; // Don't set as current if clicking delete button
+            }
+            
+            currentBackground = id;
+            await saveBackgroundImages();
+            applyBackgroundToPage();
+            populateBackgroundGrid();
+            showUploadSuccess(`Background "${image.name}" applied successfully!`);
+        });
+
+        grid.appendChild(imageItem);
+    });
+
+    lucide.createIcons();
+}
+
+// Function to apply background to the page
+function applyBackgroundToPage() {
+    const bgElement = document.querySelector('.bg');
+    
+    if (currentBackground === 'default') {
+        // Reset to default background
+        bgElement.style.backgroundImage = "url('images/cat_leaves.png')";
+    } else {
+        // Apply uploaded background
+        const backgroundData = backgroundImages[currentBackground];
+        if (backgroundData) {
+            bgElement.style.backgroundImage = `url('${backgroundData.data}')`;
+        }
+    }
 }
 
 function toggleEditMode(container, linkRow, editForm) {
@@ -1268,10 +1489,12 @@ async function removeLink(rowIndex, linkIndex) {
 // Export links to JSON file
 function exportLinks() {
     const exportData = {
-        version: '1.1',
+        version: '1.2',
         exportDate: new Date().toISOString(),
         links: rowLinks,
-        uploadedImages: uploadedImages
+        uploadedImages: uploadedImages,
+        backgroundImages: backgroundImages,
+        currentBackground: currentBackground
     };
 
     const dataStr = JSON.stringify(exportData, null, 2);
@@ -1347,12 +1570,25 @@ async function importLinks(file) {
                 await saveUploadedImages();
             }
             
+            // Import background images if they exist
+            if (importData.backgroundImages) {
+                backgroundImages = importData.backgroundImages;
+                currentBackground = importData.currentBackground || 'default';
+                await saveBackgroundImages();
+                applyBackgroundToPage();
+            }
+            
             await saveLinks();
             await populateLinks();
             populateCurrentLinks();
             
             const imageCount = importData.uploadedImages ? Object.keys(importData.uploadedImages).length : 0;
-            alert(`Successfully imported ${linkCount} links${imageCount > 0 ? ` and ${imageCount} images` : ''}!`);
+            const backgroundCount = importData.backgroundImages ? Object.keys(importData.backgroundImages).length : 0;
+            
+            let message = `Successfully imported ${linkCount} links`;
+            if (imageCount > 0) message += ` and ${imageCount} images`;
+            if (backgroundCount > 0) message += ` and ${backgroundCount} backgrounds`;
+            alert(message + '!');
         }
         
     } catch (error) {
@@ -1391,9 +1627,11 @@ window.addEventListener('pageshow', function() {
 async function init() {
     await loadLinks();
     await loadUploadedImages();
+    await loadBackgroundImages();
     updateTime();
     setInterval(updateTime, 1000);
     await populateLinks();
+    applyBackgroundToPage(); // Apply the current background
     setupManageLinks();
 }
 
