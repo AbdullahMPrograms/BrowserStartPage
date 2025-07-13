@@ -268,6 +268,141 @@ function setupManageLinks() {
     uploadBackgroundBtn.addEventListener('click', handleBackgroundUpload);
     cancelBackgroundUpload.addEventListener('click', resetBackgroundUpload);
 
+    // Enhanced upload area drag and drop functionality
+    setupDragAndDrop();
+
+    function setupDragAndDrop() {
+        // Image upload drag and drop
+        const imageUploadArea = document.querySelector('#management-image-upload').closest('.upload-area');
+        const imageDropzone = imageUploadArea.querySelector('.upload-dropzone');
+        
+        // Background upload drag and drop
+        const backgroundUploadArea = document.querySelector('#background-upload').closest('.upload-area');
+        const backgroundDropzone = backgroundUploadArea.querySelector('.upload-dropzone');
+        
+        // Regular upload field drag and drop
+        const regularUploadArea = document.querySelector('#image-upload')?.closest('.upload-area');
+        const regularDropzone = regularUploadArea?.querySelector('.upload-dropzone');
+
+        // Setup drag and drop for management image upload
+        setupDropZone(imageUploadArea, imageDropzone, handleManagementImageDrop, 'image');
+        
+        // Setup drag and drop for background upload
+        setupDropZone(backgroundUploadArea, backgroundDropzone, handleBackgroundDrop, 'background');
+        
+        // Setup drag and drop for regular upload field (if exists)
+        if (regularUploadArea && regularDropzone) {
+            setupDropZone(regularUploadArea, regularDropzone, handleRegularImageDrop, 'image');
+        }
+    }
+
+    function setupDropZone(uploadArea, dropzone, dropHandler, type) {
+        const input = uploadArea.querySelector('input[type="file"]');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                dropzone.classList.add('drag-over');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                dropzone.classList.remove('drag-over');
+            }, false);
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                dropHandler(files[0], input);
+            }
+        }, false);
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    }
+
+    function handleManagementImageDrop(file, input) {
+        // Create a FileList-like object
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        
+        // Trigger the change event
+        const event = new Event('change', { bubbles: true });
+        input.dispatchEvent(event);
+        
+        // Add visual feedback
+        showDropSuccess(file.name);
+    }
+
+    function handleBackgroundDrop(file, input) {
+        // Create a FileList-like object
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        
+        // Trigger the change event
+        const event = new Event('change', { bubbles: true });
+        input.dispatchEvent(event);
+        
+        // Add visual feedback
+        showDropSuccess(file.name);
+    }
+
+    function handleRegularImageDrop(file, input) {
+        // Create a FileList-like object
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        
+        // Trigger the change event
+        const event = new Event('change', { bubbles: true });
+        input.dispatchEvent(event);
+        
+        // Add visual feedback
+        showDropSuccess(file.name);
+    }
+
+    function showDropSuccess(fileName) {
+        // Create a temporary success message
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-600/90 backdrop-blur-sm text-white px-4 py-2 rounded-lg shadow-lg z-[110] opacity-0 transition-all duration-300 border border-green-500/30';
+        successMsg.innerHTML = `
+            <div class="flex items-center gap-2">
+                <i data-lucide="check-circle" class="h-4 w-4 success-check"></i>
+                <span>File ready: "${fileName}"</span>
+            </div>
+        `;
+        
+        document.body.appendChild(successMsg);
+        lucide.createIcons();
+        
+        // Animate in
+        setTimeout(() => {
+            successMsg.style.opacity = '1';
+            successMsg.style.transform = 'translateY(0)';
+        }, 100);
+        
+        // Remove after 2 seconds
+        setTimeout(() => {
+            successMsg.style.opacity = '0';
+            successMsg.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                if (successMsg.parentNode) {
+                    successMsg.parentNode.removeChild(successMsg);
+                }
+            }, 300);
+        }, 2000);
+    }
+
     // Helper functions for image upload
     function resetImageUpload() {
         imageUpload.value = '';
@@ -399,7 +534,9 @@ function setupManageLinks() {
         const file = managementImageUpload.files[0];
         if (!file) return;
 
+        // Add loading state
         uploadImageBtn.disabled = true;
+        uploadImageBtn.classList.add('btn-loading');
         uploadImageBtn.innerHTML = '<i data-lucide="loader-2" class="h-4 w-4 mr-2 animate-spin"></i>Uploading...';
 
         try {
@@ -428,19 +565,30 @@ function setupManageLinks() {
                 // Reset the upload form
                 resetManagementUpload();
                 
-                // Show success message
-                showUploadSuccess(file.name);
+                // Show enhanced success message
+                showUploadSuccessEnhanced(file.name, 'image');
                 
-                // Re-enable button
+                // Re-enable button with success state
                 uploadImageBtn.disabled = false;
-                uploadImageBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
+                uploadImageBtn.classList.remove('btn-loading');
+                uploadImageBtn.classList.add('btn-success');
+                uploadImageBtn.innerHTML = '<i data-lucide="check" class="h-4 w-4 mr-2"></i>Uploaded!';
+                
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    uploadImageBtn.classList.remove('btn-success');
+                    uploadImageBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
+                    lucide.createIcons();
+                }, 2000);
+                
                 lucide.createIcons();
             };
             reader.readAsDataURL(file);
         } catch (error) {
             console.error('Error uploading image:', error);
-            alert('Error uploading image. Please try again.');
+            showUploadError('Error uploading image. Please try again.');
             uploadImageBtn.disabled = false;
+            uploadImageBtn.classList.remove('btn-loading');
             uploadImageBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
             lucide.createIcons();
         }
@@ -457,7 +605,7 @@ function setupManageLinks() {
     function showUploadSuccess(fileName) {
         // Create a temporary success message
         const successMsg = document.createElement('div');
-        successMsg.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 opacity-0 transition-opacity duration-300';
+        successMsg.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-[110] opacity-0 transition-opacity duration-300';
         successMsg.innerHTML = `
             <div class="flex items-center gap-2">
                 <i data-lucide="check-circle" class="h-4 w-4"></i>
@@ -482,6 +630,91 @@ function setupManageLinks() {
                 }
             }, 300);
         }, 3000);
+    }
+
+    function showUploadSuccessEnhanced(fileName, type) {
+        // Create an enhanced success message
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-xl shadow-xl z-[110] opacity-0 transform translate-y-[-10px] transition-all duration-300 border border-green-400/30 backdrop-blur-sm';
+        
+        const icon = type === 'background' ? 'image' : 'image-plus';
+        const typeText = type === 'background' ? 'Background' : 'Image';
+        
+        successMsg.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                    <i data-lucide="${icon}" class="h-4 w-4 success-check"></i>
+                </div>
+                <div>
+                    <div class="font-semibold">${typeText} Uploaded Successfully!</div>
+                    <div class="text-sm opacity-90">"${fileName}"</div>
+                </div>
+                <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center ml-2">
+                    <i data-lucide="check" class="h-3 w-3"></i>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(successMsg);
+        lucide.createIcons();
+        
+        // Animate in
+        setTimeout(() => {
+            successMsg.style.opacity = '1';
+            successMsg.style.transform = 'translateY(0)';
+        }, 100);
+        
+        // Remove after 4 seconds
+        setTimeout(() => {
+            successMsg.style.opacity = '0';
+            successMsg.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                if (successMsg.parentNode) {
+                    successMsg.parentNode.removeChild(successMsg);
+                }
+            }, 300);
+        }, 4000);
+    }
+
+    function showUploadError(message) {
+        // Create an error message
+        const errorMsg = document.createElement('div');
+        errorMsg.className = 'fixed top-4 right-4 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-xl shadow-xl z-[110] opacity-0 transform translate-y-[-10px] transition-all duration-300 border border-red-400/30 backdrop-blur-sm';
+        
+        errorMsg.innerHTML = `
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                    <i data-lucide="alert-circle" class="h-4 w-4"></i>
+                </div>
+                <div>
+                    <div class="font-semibold">Upload Failed</div>
+                    <div class="text-sm opacity-90">${message}</div>
+                </div>
+                <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center ml-2">
+                    <i data-lucide="x" class="h-3 w-3"></i>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(errorMsg);
+        lucide.createIcons();
+        
+        // Animate in
+        setTimeout(() => {
+            errorMsg.style.opacity = '1';
+            errorMsg.style.transform = 'translateY(0)';
+        }, 100);
+        
+        // Remove after 5 seconds
+        setTimeout(() => {
+            errorMsg.style.opacity = '0';
+            errorMsg.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                if (errorMsg.parentNode) {
+                    errorMsg.parentNode.removeChild(errorMsg);
+                }
+            }, 300);
+        }, 5000);
     }
 
     function updateAllEditFormSelects() {
@@ -550,7 +783,9 @@ function setupManageLinks() {
         const file = backgroundUpload.files[0];
         if (!file) return;
 
+        // Add loading state
         uploadBackgroundBtn.disabled = true;
+        uploadBackgroundBtn.classList.add('btn-loading');
         uploadBackgroundBtn.innerHTML = '<i data-lucide="loader-2" class="h-4 w-4 mr-2 animate-spin"></i>Uploading...';
 
         try {
@@ -575,19 +810,30 @@ function setupManageLinks() {
                 // Reset the upload form
                 resetBackgroundUpload();
                 
-                // Show success message
-                showUploadSuccess(file.name + ' (Background)');
+                // Show enhanced success message
+                showUploadSuccessEnhanced(file.name, 'background');
                 
-                // Re-enable button
+                // Re-enable button with success state
                 uploadBackgroundBtn.disabled = false;
-                uploadBackgroundBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
+                uploadBackgroundBtn.classList.remove('btn-loading');
+                uploadBackgroundBtn.classList.add('btn-success');
+                uploadBackgroundBtn.innerHTML = '<i data-lucide="check" class="h-4 w-4 mr-2"></i>Uploaded!';
+                
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    uploadBackgroundBtn.classList.remove('btn-success');
+                    uploadBackgroundBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
+                    lucide.createIcons();
+                }, 2000);
+                
                 lucide.createIcons();
             };
             reader.readAsDataURL(file);
         } catch (error) {
             console.error('Error uploading background:', error);
-            alert('Error uploading background. Please try again.');
+            showUploadError('Error uploading background. Please try again.');
             uploadBackgroundBtn.disabled = false;
+            uploadBackgroundBtn.classList.remove('btn-loading');
             uploadBackgroundBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
             lucide.createIcons();
         }
@@ -659,6 +905,7 @@ function setupManageLinks() {
         populateUploadedImagesGrid();
         populateUploadedImagesSelect();
         populateBackgroundGrid();
+        setupDragAndDrop(); // Setup drag and drop when modal opens
         document.body.style.overflow = 'hidden';
     });
 
