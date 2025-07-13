@@ -359,6 +359,38 @@ function populateCurrentLinks() {
                         <input type="url" class="form-input edit-url" value="${link.url}" required>
                     </div>
                 </div>
+                
+                <div class="form-group mb-4">
+                    <label class="form-label">Icon Type</label>
+                    <select class="form-select edit-icon-type">
+                        <option value="auto" ${link.type === 'auto' ? 'selected' : ''}>Auto (Favicon)</option>
+                        <option value="simple" ${link.type === 'simple' ? 'selected' : ''}>Simple Icons</option>
+                        <option value="lucide" ${link.type === 'lucide' ? 'selected' : ''}>Lucide Icons</option>
+                        <option value="local" ${link.type === 'local' ? 'selected' : ''}>Local Image</option>
+                    </select>
+                </div>
+                
+                <div class="edit-icon-fields" style="display: ${(link.type === 'simple' || link.type === 'lucide') ? 'grid' : 'none'};">
+                    <div class="edit-form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Icon Name</label>
+                            <input type="text" class="form-input edit-icon-name" value="${link.icon || ''}" placeholder="Enter icon name">
+                            <small class="edit-icon-help text-xs text-gray-400 mt-1 block">${getIconHelpText(link.type)}</small>
+                        </div>
+                        <div class="form-group edit-color-field" style="display: ${(link.type === 'simple' || link.type === 'lucide') ? 'block' : 'none'};">
+                            <label class="form-label">Color</label>
+                            <input type="text" class="form-input edit-icon-color" value="${link.color || '#FFFFFF'}" placeholder="#FFFFFF or color name">
+                            <small class="text-xs text-gray-400 mt-1 block">Hex color code (#FF0000) or CSS color name (red)</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="edit-local-field form-group" style="display: ${link.type === 'local' ? 'block' : 'none'};">
+                    <label class="form-label">Image Filename</label>
+                    <input type="text" class="form-input edit-local-filename" value="${link.icon || ''}" placeholder="image.png">
+                    <small class="text-xs text-gray-400 mt-1 block">Filename of image in the images folder (e.g., logo.png)</small>
+                </div>
+                
                 <div class="edit-buttons">
                     <button class="btn btn-secondary cancel-edit">Cancel</button>
                     <button class="btn btn-primary save-edit">Save</button>
@@ -391,6 +423,17 @@ function populateCurrentLinks() {
     lucide.createIcons();
 }
 
+function getIconHelpText(iconType) {
+    switch (iconType) {
+        case 'simple':
+            return 'Simple Icons name (e.g., "github", "twitter")';
+        case 'lucide':
+            return 'Lucide icon name (e.g., "home", "user", "settings")';
+        default:
+            return 'Enter the icon name';
+    }
+}
+
 function toggleEditMode(container, linkRow, editForm) {
     // Close any other open edit forms
     const allEditForms = document.querySelectorAll('.edit-form.active');
@@ -421,6 +464,36 @@ function toggleEditMode(container, linkRow, editForm) {
         linkRow.classList.add('editing');
         linkRow.draggable = false; // Disable dragging while editing
         
+        // Set up icon type change handler for this edit form
+        const iconTypeSelect = editForm.querySelector('.edit-icon-type');
+        const iconFields = editForm.querySelector('.edit-icon-fields');
+        const localField = editForm.querySelector('.edit-local-field');
+        const colorField = editForm.querySelector('.edit-color-field');
+        const iconHelp = editForm.querySelector('.edit-icon-help');
+        
+        // Handle icon type changes in edit form
+        iconTypeSelect.addEventListener('change', function() {
+            const selectedType = this.value;
+            
+            // Hide all conditional fields first
+            iconFields.style.display = 'none';
+            localField.style.display = 'none';
+            colorField.style.display = 'none';
+            
+            if (selectedType === 'simple') {
+                iconFields.style.display = 'grid';
+                colorField.style.display = 'block';
+                iconHelp.textContent = 'Simple Icons name (e.g., "github", "twitter")';
+            } else if (selectedType === 'lucide') {
+                iconFields.style.display = 'grid';
+                colorField.style.display = 'block';
+                iconHelp.textContent = 'Lucide icon name (e.g., "home", "user", "settings")';
+            } else if (selectedType === 'local') {
+                localField.style.display = 'block';
+            }
+            // For 'auto', nothing additional is shown
+        });
+        
         // Focus on the name input
         const nameInput = editForm.querySelector('.edit-name');
         setTimeout(() => nameInput.focus(), 100);
@@ -439,14 +512,42 @@ function cancelEdit(container, linkRow, editForm) {
     
     editForm.querySelector('.edit-name').value = link.name;
     editForm.querySelector('.edit-url').value = link.url;
+    editForm.querySelector('.edit-icon-type').value = link.type;
+    editForm.querySelector('.edit-icon-name').value = link.icon || '';
+    editForm.querySelector('.edit-icon-color').value = link.color || '#FFFFFF';
+    editForm.querySelector('.edit-local-filename').value = (link.type === 'local') ? (link.icon || '') : '';
+    
+    // Reset conditional field visibility
+    const iconFields = editForm.querySelector('.edit-icon-fields');
+    const localField = editForm.querySelector('.edit-local-field');
+    const colorField = editForm.querySelector('.edit-color-field');
+    
+    if (link.type === 'simple' || link.type === 'lucide') {
+        iconFields.style.display = 'grid';
+        colorField.style.display = 'block';
+    } else {
+        iconFields.style.display = 'none';
+        colorField.style.display = 'none';
+    }
+    
+    if (link.type === 'local') {
+        localField.style.display = 'block';
+    } else {
+        localField.style.display = 'none';
+    }
 }
 
 async function saveEdit(container, linkRow, editForm, rowIndex, linkIndex) {
     const nameInput = editForm.querySelector('.edit-name');
     const urlInput = editForm.querySelector('.edit-url');
+    const iconTypeInput = editForm.querySelector('.edit-icon-type');
+    const iconNameInput = editForm.querySelector('.edit-icon-name');
+    const iconColorInput = editForm.querySelector('.edit-icon-color');
+    const localFilenameInput = editForm.querySelector('.edit-local-filename');
     
     const newName = nameInput.value.trim();
     const newUrl = urlInput.value.trim();
+    const newIconType = iconTypeInput.value;
     
     // Validate inputs
     if (!newName || !newUrl) {
@@ -462,9 +563,39 @@ async function saveEdit(container, linkRow, editForm, rowIndex, linkIndex) {
         return;
     }
     
+    // Validate icon-specific fields
+    if (newIconType === 'simple' || newIconType === 'lucide') {
+        const iconName = iconNameInput.value.trim();
+        if (!iconName) {
+            alert(`Please enter an icon name for ${newIconType === 'simple' ? 'Simple Icons' : 'Lucide Icons'}`);
+            return;
+        }
+    } else if (newIconType === 'local') {
+        const filename = localFilenameInput.value.trim();
+        if (!filename) {
+            alert('Please enter a filename for local image');
+            return;
+        }
+    }
+    
     // Update the link
     rowLinks[rowIndex][linkIndex].name = newName;
     rowLinks[rowIndex][linkIndex].url = newUrl;
+    rowLinks[rowIndex][linkIndex].type = newIconType;
+    
+    // Update icon-specific properties
+    if (newIconType === 'simple' || newIconType === 'lucide') {
+        rowLinks[rowIndex][linkIndex].icon = iconNameInput.value.trim();
+        rowLinks[rowIndex][linkIndex].color = iconColorInput.value.trim() || '#FFFFFF';
+    } else if (newIconType === 'local') {
+        rowLinks[rowIndex][linkIndex].icon = localFilenameInput.value.trim();
+        // Remove color property for local images
+        delete rowLinks[rowIndex][linkIndex].color;
+    } else if (newIconType === 'auto') {
+        // Remove icon and color properties for auto
+        delete rowLinks[rowIndex][linkIndex].icon;
+        delete rowLinks[rowIndex][linkIndex].color;
+    }
     
     // Save to storage
     await saveLinks();
