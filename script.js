@@ -532,7 +532,12 @@ function setupManageLinks() {
 
     async function handleManagementImageUpload() {
         const file = managementImageUpload.files[0];
-        if (!file) return;
+        
+        // If no file is selected, trigger the file picker
+        if (!file) {
+            managementImageUpload.click();
+            return;
+        }
 
         // Add loading state
         uploadImageBtn.disabled = true;
@@ -781,7 +786,12 @@ function setupManageLinks() {
 
     async function handleBackgroundUpload() {
         const file = backgroundUpload.files[0];
-        if (!file) return;
+        
+        // If no file is selected, trigger the file picker
+        if (!file) {
+            backgroundUpload.click();
+            return;
+        }
 
         // Add loading state
         uploadBackgroundBtn.disabled = true;
