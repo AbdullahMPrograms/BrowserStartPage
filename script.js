@@ -20,6 +20,7 @@ function updateTime() {
 
 // Load links from storage or use empty array
 let rowLinks = [];
+let uploadedImages = {}; // Store uploaded images as { id: { name, data, timestamp } }
 
 async function loadLinks() {
     try {
@@ -31,11 +32,29 @@ async function loadLinks() {
     }
 }
 
+async function loadUploadedImages() {
+    try {
+        const result = await chrome.storage.local.get(['uploadedImages']);
+        uploadedImages = result.uploadedImages || {};
+    } catch (error) {
+        console.log('Storage not available, using empty images');
+        uploadedImages = {};
+    }
+}
+
 async function saveLinks() {
     try {
         await chrome.storage.local.set({ quickLinks: rowLinks });
     } catch (error) {
         console.log('Could not save links to storage');
+    }
+}
+
+async function saveUploadedImages() {
+    try {
+        await chrome.storage.local.set({ uploadedImages: uploadedImages });
+    } catch (error) {
+        console.log('Could not save images to storage');
     }
 }
 
@@ -98,6 +117,12 @@ async function populateLinks() {
             } else if (link.type === 'local') {
                 // Use local image
                 iconHtml = `<img src="images/${link.icon}" alt="${link.name}" class="w-4 h-4 object-contain">`;
+            } else if (link.type === 'uploaded') {
+                // Use uploaded image
+                const imageData = uploadedImages[link.icon];
+                if (imageData) {
+                    iconHtml = `<img src="${imageData.data}" alt="${link.name}" class="w-4 h-4 object-contain">`;
+                }
             } else if (link.type === 'auto') {
                 // Use automatic favicon
                 const faviconUrl = getFaviconUrl(link.url);
@@ -134,12 +159,31 @@ function setupManageLinks() {
     const iconTypeSelect = document.getElementById('icon-type');
     const iconFields = document.getElementById('icon-fields');
     const localField = document.getElementById('local-field');
+    const uploadField = document.getElementById('upload-field');
     const colorField = document.getElementById('color-field');
     const iconHelp = document.getElementById('icon-help');
     const exportBtn = document.getElementById('export-btn');
     const importBtn = document.getElementById('import-btn');
     const importFile = document.getElementById('import-file');
     const clearAllBtn = document.getElementById('clear-all-btn');
+    const clearImagesBtn = document.getElementById('clear-images-btn');
+
+    // Image upload elements
+    const imageUpload = document.getElementById('image-upload');
+    const uploadedImagesSelect = document.getElementById('uploaded-images-select');
+    const imagePreview = document.getElementById('image-preview');
+    const previewImg = document.getElementById('preview-img');
+    const previewName = document.getElementById('preview-name');
+    const removePreview = document.getElementById('remove-preview');
+
+    // Management section upload elements
+    const managementImageUpload = document.getElementById('management-image-upload');
+    const uploadImageBtn = document.getElementById('upload-image-btn');
+    const managementImagePreview = document.getElementById('management-image-preview');
+    const managementPreviewImg = document.getElementById('management-preview-img');
+    const managementPreviewName = document.getElementById('management-preview-name');
+    const managementPreviewSize = document.getElementById('management-preview-size');
+    const cancelUpload = document.getElementById('cancel-upload');
 
     // Handle icon type changes
     iconTypeSelect.addEventListener('change', function() {
@@ -148,12 +192,14 @@ function setupManageLinks() {
         // Hide all conditional fields first
         iconFields.style.display = 'none';
         localField.style.display = 'none';
+        uploadField.style.display = 'none';
         colorField.style.display = 'none';
         
         // Clear all conditional inputs
         document.getElementById('icon-name').value = '';
         document.getElementById('icon-color').value = '';
         document.getElementById('local-filename').value = '';
+        resetImageUpload();
         
         if (selectedType === 'simple') {
             iconFields.style.display = 'grid';
@@ -165,8 +211,286 @@ function setupManageLinks() {
             iconHelp.textContent = 'Lucide icon name (e.g., "home", "user", "settings")';
         } else if (selectedType === 'local') {
             localField.style.display = 'block';
+        } else if (selectedType === 'uploaded') {
+            uploadField.style.display = 'block';
+            populateUploadedImagesSelect();
         }
         // For 'auto', nothing additional is shown
+    });
+
+    // Image upload handlers
+    imageUpload.addEventListener('change', handleImageUpload);
+    uploadedImagesSelect.addEventListener('change', handleUploadedImageSelect);
+    removePreview.addEventListener('click', resetImageUpload);
+
+    // Management section upload handlers
+    managementImageUpload.addEventListener('change', handleManagementImageSelect);
+    uploadImageBtn.addEventListener('click', handleManagementImageUpload);
+    cancelUpload.addEventListener('click', resetManagementUpload);
+
+    // Helper functions for image upload
+    function resetImageUpload() {
+        imageUpload.value = '';
+        uploadedImagesSelect.value = '';
+        imagePreview.style.display = 'none';
+        previewImg.src = '';
+        previewName.textContent = '';
+    }
+
+    async function handleImageUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select a valid image file');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image file size must be less than 5MB');
+            return;
+        }
+
+        try {
+            // Read file as data URL
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const imageData = e.target.result;
+                const imageId = generateImageId();
+                
+                // Store the image
+                uploadedImages[imageId] = {
+                    name: file.name,
+                    data: imageData,
+                    timestamp: Date.now()
+                };
+
+                await saveUploadedImages();
+                
+                // Show preview
+                showImagePreview(imageId, file.name, imageData);
+                
+                // Update the select dropdown
+                populateUploadedImagesSelect();
+                uploadedImagesSelect.value = imageId;
+                updateAllEditFormSelects();
+                
+                // Update the image management grid
+                populateUploadedImagesGrid();
+            };
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            alert('Error uploading image. Please try again.');
+        }
+    }
+
+    function handleUploadedImageSelect(e) {
+        const imageId = e.target.value;
+        if (!imageId) {
+            resetImageUpload();
+            return;
+        }
+
+        const imageData = uploadedImages[imageId];
+        if (imageData) {
+            showImagePreview(imageId, imageData.name, imageData.data);
+            imageUpload.value = ''; // Clear file input
+        }
+    }
+
+    function showImagePreview(imageId, name, data) {
+        previewImg.src = data;
+        previewName.textContent = name;
+        previewImg.dataset.imageId = imageId;
+        imagePreview.style.display = 'block';
+    }
+
+    function generateImageId() {
+        return 'img_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // Management section upload functions
+    function resetManagementUpload() {
+        managementImageUpload.value = '';
+        managementImagePreview.style.display = 'none';
+        managementPreviewImg.src = '';
+        managementPreviewName.textContent = '';
+        managementPreviewSize.textContent = '';
+        uploadImageBtn.disabled = false;
+    }
+
+    function handleManagementImageSelect(e) {
+        const file = e.target.files[0];
+        if (!file) {
+            resetManagementUpload();
+            return;
+        }
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select a valid image file');
+            resetManagementUpload();
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image file size must be less than 5MB');
+            resetManagementUpload();
+            return;
+        }
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            managementPreviewImg.src = e.target.result;
+            managementPreviewName.textContent = file.name;
+            managementPreviewSize.textContent = formatFileSize(file.size);
+            managementImagePreview.style.display = 'block';
+            uploadImageBtn.disabled = false;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function handleManagementImageUpload() {
+        const file = managementImageUpload.files[0];
+        if (!file) return;
+
+        uploadImageBtn.disabled = true;
+        uploadImageBtn.innerHTML = '<i data-lucide="loader-2" class="h-4 w-4 mr-2 animate-spin"></i>Uploading...';
+
+        try {
+            // Read file as data URL
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const imageData = e.target.result;
+                const imageId = generateImageId();
+                
+                // Store the image
+                uploadedImages[imageId] = {
+                    name: file.name,
+                    data: imageData,
+                    timestamp: Date.now()
+                };
+
+                await saveUploadedImages();
+                
+                // Update all relevant UI elements
+                populateUploadedImagesGrid();
+                populateUploadedImagesSelect();
+                
+                // Update any open edit forms
+                updateAllEditFormSelects();
+                
+                // Reset the upload form
+                resetManagementUpload();
+                
+                // Show success message
+                showUploadSuccess(file.name);
+                
+                // Re-enable button
+                uploadImageBtn.disabled = false;
+                uploadImageBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
+                lucide.createIcons();
+            };
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            alert('Error uploading image. Please try again.');
+            uploadImageBtn.disabled = false;
+            uploadImageBtn.innerHTML = '<i data-lucide="upload" class="h-4 w-4 mr-2"></i>Upload';
+            lucide.createIcons();
+        }
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function showUploadSuccess(fileName) {
+        // Create a temporary success message
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 opacity-0 transition-opacity duration-300';
+        successMsg.innerHTML = `
+            <div class="flex items-center gap-2">
+                <i data-lucide="check-circle" class="h-4 w-4"></i>
+                <span>Successfully uploaded "${fileName}"</span>
+            </div>
+        `;
+        
+        document.body.appendChild(successMsg);
+        lucide.createIcons();
+        
+        // Animate in
+        setTimeout(() => {
+            successMsg.style.opacity = '1';
+        }, 100);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            successMsg.style.opacity = '0';
+            setTimeout(() => {
+                if (successMsg.parentNode) {
+                    successMsg.parentNode.removeChild(successMsg);
+                }
+            }, 300);
+        }, 3000);
+    }
+
+    function updateAllEditFormSelects() {
+        // Update all uploaded image selects in edit forms
+        const editSelects = document.querySelectorAll('.edit-uploaded-images-select');
+        editSelects.forEach(select => {
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Choose an uploaded image...</option>';
+            
+            Object.entries(uploadedImages).forEach(([id, image]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = image.name;
+                if (currentValue === id) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        });
+    }
+
+    function populateUploadedImagesSelect() {
+        uploadedImagesSelect.innerHTML = '<option value="">Choose an uploaded image...</option>';
+        
+        Object.entries(uploadedImages).forEach(([id, image]) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = image.name;
+            uploadedImagesSelect.appendChild(option);
+        });
+    }
+
+    // Clear uploaded images handler
+    clearImagesBtn.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to clear all uploaded images? This action cannot be undone and will affect any links using these images.')) {
+            uploadedImages = {};
+            await saveUploadedImages();
+            populateUploadedImagesSelect();
+            populateUploadedImagesGrid();
+            updateAllEditFormSelects();
+            resetImageUpload();
+            resetManagementUpload();
+            
+            // Update main links display to reflect removed images
+            await populateLinks();
+            populateCurrentLinks();
+            
+            alert('All uploaded images have been cleared.');
+        }
     });
 
     // Show/hide manage button on hover
@@ -188,6 +512,8 @@ function setupManageLinks() {
     manageBtn.addEventListener('click', () => {
         modalOverlay.classList.add('active');
         populateCurrentLinks();
+        populateUploadedImagesGrid();
+        populateUploadedImagesSelect();
         document.body.style.overflow = 'hidden';
     });
 
@@ -206,7 +532,9 @@ function setupManageLinks() {
         // Reset conditional fields
         iconFields.style.display = 'none';
         localField.style.display = 'none';
+        uploadField.style.display = 'none';
         colorField.style.display = 'none';
+        resetImageUpload();
     }
 
     // Add new link
@@ -244,6 +572,13 @@ function setupManageLinks() {
                 return;
             }
             newLink.icon = filename;
+        } else if (iconType === 'uploaded') {
+            const imageId = previewImg.dataset.imageId || uploadedImagesSelect.value;
+            if (!imageId) {
+                alert('Please upload an image or select from uploaded images');
+                return;
+            }
+            newLink.icon = imageId;
         }
 
         // Find the first available spot
@@ -266,7 +601,9 @@ function setupManageLinks() {
         addLinkForm.reset();
         iconFields.style.display = 'none';
         localField.style.display = 'none';
+        uploadField.style.display = 'none';
         colorField.style.display = 'none';
+        resetImageUpload();
     });
 
     // Export functionality
@@ -367,6 +704,7 @@ function populateCurrentLinks() {
                         <option value="simple" ${link.type === 'simple' ? 'selected' : ''}>Simple Icons</option>
                         <option value="lucide" ${link.type === 'lucide' ? 'selected' : ''}>Lucide Icons</option>
                         <option value="local" ${link.type === 'local' ? 'selected' : ''}>Local Image</option>
+                        <option value="uploaded" ${link.type === 'uploaded' ? 'selected' : ''}>Uploaded Image</option>
                     </select>
                 </div>
                 
@@ -389,6 +727,14 @@ function populateCurrentLinks() {
                     <label class="form-label">Image Filename</label>
                     <input type="text" class="form-input edit-local-filename" value="${link.icon || ''}" placeholder="image.png">
                     <small class="text-xs text-gray-400 mt-1 block">Filename of image in the images folder (e.g., logo.png)</small>
+                </div>
+                
+                <div class="edit-upload-field form-group" style="display: ${link.type === 'uploaded' ? 'block' : 'none'};">
+                    <label class="form-label">Uploaded Image</label>
+                    <select class="form-select edit-uploaded-images-select">
+                        <option value="">Choose an uploaded image...</option>
+                    </select>
+                    <small class="text-xs text-gray-400 mt-1 block">Select from your uploaded images</small>
                 </div>
                 
                 <div class="edit-buttons">
@@ -434,6 +780,50 @@ function getIconHelpText(iconType) {
     }
 }
 
+// Function to populate the uploaded images grid
+function populateUploadedImagesGrid() {
+    const grid = document.getElementById('uploaded-images-grid');
+    grid.innerHTML = '';
+
+    const imageCount = Object.keys(uploadedImages).length;
+    if (imageCount === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center text-gray-400 text-sm py-4">No uploaded images</div>';
+        return;
+    }
+
+    Object.entries(uploadedImages).forEach(([id, image]) => {
+        const imageItem = document.createElement('div');
+        imageItem.className = 'image-item';
+        imageItem.innerHTML = `
+            <img src="${image.data}" alt="${image.name}" title="${image.name}">
+            <div class="image-item-name">${image.name}</div>
+            <button class="image-item-delete" data-image-id="${id}" title="Delete image">
+                <i data-lucide="x" class="h-3 w-3 text-white"></i>
+            </button>
+        `;
+
+        const deleteBtn = imageItem.querySelector('.image-item-delete');
+        deleteBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (confirm(`Delete "${image.name}"? This will affect any links using this image.`)) {
+                delete uploadedImages[id];
+                await saveUploadedImages();
+                populateUploadedImagesGrid();
+                populateUploadedImagesSelect();
+                updateAllEditFormSelects();
+                
+                // Update links display
+                await populateLinks();
+                populateCurrentLinks();
+            }
+        });
+
+        grid.appendChild(imageItem);
+    });
+
+    lucide.createIcons();
+}
+
 function toggleEditMode(container, linkRow, editForm) {
     // Close any other open edit forms
     const allEditForms = document.querySelectorAll('.edit-form.active');
@@ -468,8 +858,24 @@ function toggleEditMode(container, linkRow, editForm) {
         const iconTypeSelect = editForm.querySelector('.edit-icon-type');
         const iconFields = editForm.querySelector('.edit-icon-fields');
         const localField = editForm.querySelector('.edit-local-field');
+        const uploadField = editForm.querySelector('.edit-upload-field');
         const colorField = editForm.querySelector('.edit-color-field');
         const iconHelp = editForm.querySelector('.edit-icon-help');
+        const uploadSelect = editForm.querySelector('.edit-uploaded-images-select');
+        
+        // Populate uploaded images select for this edit form
+        if (uploadSelect) {
+            uploadSelect.innerHTML = '<option value="">Choose an uploaded image...</option>';
+            Object.entries(uploadedImages).forEach(([id, image]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = image.name;
+                if (link.type === 'uploaded' && link.icon === id) {
+                    option.selected = true;
+                }
+                uploadSelect.appendChild(option);
+            });
+        }
         
         // Handle icon type changes in edit form
         iconTypeSelect.addEventListener('change', function() {
@@ -478,6 +884,7 @@ function toggleEditMode(container, linkRow, editForm) {
             // Hide all conditional fields first
             iconFields.style.display = 'none';
             localField.style.display = 'none';
+            uploadField.style.display = 'none';
             colorField.style.display = 'none';
             
             if (selectedType === 'simple') {
@@ -490,6 +897,8 @@ function toggleEditMode(container, linkRow, editForm) {
                 iconHelp.textContent = 'Lucide icon name (e.g., "home", "user", "settings")';
             } else if (selectedType === 'local') {
                 localField.style.display = 'block';
+            } else if (selectedType === 'uploaded') {
+                uploadField.style.display = 'block';
             }
             // For 'auto', nothing additional is shown
         });
@@ -517,9 +926,15 @@ function cancelEdit(container, linkRow, editForm) {
     editForm.querySelector('.edit-icon-color').value = link.color || '#FFFFFF';
     editForm.querySelector('.edit-local-filename').value = (link.type === 'local') ? (link.icon || '') : '';
     
+    const uploadSelect = editForm.querySelector('.edit-uploaded-images-select');
+    if (uploadSelect && link.type === 'uploaded') {
+        uploadSelect.value = link.icon || '';
+    }
+    
     // Reset conditional field visibility
     const iconFields = editForm.querySelector('.edit-icon-fields');
     const localField = editForm.querySelector('.edit-local-field');
+    const uploadField = editForm.querySelector('.edit-upload-field');
     const colorField = editForm.querySelector('.edit-color-field');
     
     if (link.type === 'simple' || link.type === 'lucide') {
@@ -535,6 +950,12 @@ function cancelEdit(container, linkRow, editForm) {
     } else {
         localField.style.display = 'none';
     }
+    
+    if (link.type === 'uploaded') {
+        uploadField.style.display = 'block';
+    } else {
+        uploadField.style.display = 'none';
+    }
 }
 
 async function saveEdit(container, linkRow, editForm, rowIndex, linkIndex) {
@@ -544,6 +965,7 @@ async function saveEdit(container, linkRow, editForm, rowIndex, linkIndex) {
     const iconNameInput = editForm.querySelector('.edit-icon-name');
     const iconColorInput = editForm.querySelector('.edit-icon-color');
     const localFilenameInput = editForm.querySelector('.edit-local-filename');
+    const uploadSelectInput = editForm.querySelector('.edit-uploaded-images-select');
     
     const newName = nameInput.value.trim();
     const newUrl = urlInput.value.trim();
@@ -576,6 +998,12 @@ async function saveEdit(container, linkRow, editForm, rowIndex, linkIndex) {
             alert('Please enter a filename for local image');
             return;
         }
+    } else if (newIconType === 'uploaded') {
+        const selectedImageId = uploadSelectInput.value;
+        if (!selectedImageId) {
+            alert('Please select an uploaded image');
+            return;
+        }
     }
     
     // Update the link
@@ -590,6 +1018,10 @@ async function saveEdit(container, linkRow, editForm, rowIndex, linkIndex) {
     } else if (newIconType === 'local') {
         rowLinks[rowIndex][linkIndex].icon = localFilenameInput.value.trim();
         // Remove color property for local images
+        delete rowLinks[rowIndex][linkIndex].color;
+    } else if (newIconType === 'uploaded') {
+        rowLinks[rowIndex][linkIndex].icon = uploadSelectInput.value;
+        // Remove color property for uploaded images
         delete rowLinks[rowIndex][linkIndex].color;
     } else if (newIconType === 'auto') {
         // Remove icon and color properties for auto
@@ -806,6 +1238,14 @@ function getLinkPreviewIcon(link) {
         return `<img src="${getFaviconUrl(link.url)}" alt="" class="w-4 h-4 object-contain">`;
     } else if (link.type === 'local') {
         return `<img src="images/${link.icon}" alt="" class="w-4 h-4 object-contain">`;
+    } else if (link.type === 'uploaded') {
+        const imageData = uploadedImages[link.icon];
+        if (imageData) {
+            return `<img src="${imageData.data}" alt="" class="w-4 h-4 object-contain">`;
+        }
+        return `<div class="w-4 h-4 bg-gray-500 rounded flex items-center justify-center">
+            <i data-lucide="image-off" class="h-3 w-3 text-gray-300"></i>
+        </div>`;
     } else if (link.type === 'lucide') {
         return `<i data-lucide="${link.icon}" class="h-4 w-4" style="color: ${link.color}"></i>`;
     } else if (link.type === 'simple') {
@@ -828,9 +1268,10 @@ async function removeLink(rowIndex, linkIndex) {
 // Export links to JSON file
 function exportLinks() {
     const exportData = {
-        version: '1.0',
+        version: '1.1',
         exportDate: new Date().toISOString(),
-        links: rowLinks
+        links: rowLinks,
+        uploadedImages: uploadedImages
     };
 
     const dataStr = JSON.stringify(exportData, null, 2);
@@ -870,10 +1311,10 @@ async function importLinks(file) {
                     throw new Error('Invalid file format: each link must have name, url, and type properties');
                 }
                 
-                // Validate link types
-                if (!['auto', 'simple', 'lucide', 'local'].includes(link.type)) {
-                    throw new Error(`Invalid link type: ${link.type}`);
-                }
+        // Validate link types
+        if (!['auto', 'simple', 'lucide', 'local', 'uploaded'].includes(link.type)) {
+            throw new Error(`Invalid link type: ${link.type}`);
+        }
                 
                 // Validate URL format
                 try {
@@ -882,14 +1323,14 @@ async function importLinks(file) {
                     throw new Error(`Invalid URL format: ${link.url}`);
                 }
                 
-                // Validate type-specific properties
-                if ((link.type === 'simple' || link.type === 'lucide') && !link.icon) {
-                    throw new Error(`Missing icon property for ${link.type} type link: ${link.name}`);
-                }
-                
-                if (link.type === 'local' && !link.icon) {
-                    throw new Error(`Missing icon property for local type link: ${link.name}`);
-                }
+        // Validate type-specific properties
+        if ((link.type === 'simple' || link.type === 'lucide') && !link.icon) {
+            throw new Error(`Missing icon property for ${link.type} type link: ${link.name}`);
+        }
+        
+        if ((link.type === 'local' || link.type === 'uploaded') && !link.icon) {
+            throw new Error(`Missing icon property for ${link.type} type link: ${link.name}`);
+        }
             }
         }
         
@@ -899,11 +1340,19 @@ async function importLinks(file) {
         
         if (confirm(confirmMessage)) {
             rowLinks = importData.links;
+            
+            // Import uploaded images if they exist
+            if (importData.uploadedImages) {
+                uploadedImages = importData.uploadedImages;
+                await saveUploadedImages();
+            }
+            
             await saveLinks();
             await populateLinks();
             populateCurrentLinks();
             
-            alert(`Successfully imported ${linkCount} links!`);
+            const imageCount = importData.uploadedImages ? Object.keys(importData.uploadedImages).length : 0;
+            alert(`Successfully imported ${linkCount} links${imageCount > 0 ? ` and ${imageCount} images` : ''}!`);
         }
         
     } catch (error) {
@@ -941,6 +1390,7 @@ window.addEventListener('pageshow', function() {
 // Initialize
 async function init() {
     await loadLinks();
+    await loadUploadedImages();
     updateTime();
     setInterval(updateTime, 1000);
     await populateLinks();
