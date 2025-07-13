@@ -46,9 +46,33 @@ async function loadUploadedImages() {
 
 async function loadBackgroundImages() {
     try {
-        const result = await chrome.storage.local.get(['backgroundImages', 'currentBackground']);
-        backgroundImages = result.backgroundImages || {};
-        currentBackground = result.currentBackground || 'default';
+        const result = await chrome.storage.local.get(['backgroundImages', 'currentBackground', 'backgroundImagesList']);
+        
+        // Try to load from the normal storage first
+        if (result.backgroundImages) {
+            backgroundImages = result.backgroundImages;
+            currentBackground = result.currentBackground || 'default';
+        } else if (result.backgroundImagesList) {
+            // Load from alternative storage (individual items)
+            backgroundImages = {};
+            const backgroundIds = result.backgroundImagesList;
+            
+            for (const id of backgroundIds) {
+                try {
+                    const backgroundResult = await chrome.storage.local.get([`background_${id}`]);
+                    if (backgroundResult[`background_${id}`]) {
+                        backgroundImages[id] = backgroundResult[`background_${id}`];
+                    }
+                } catch (error) {
+                    console.error(`Failed to load background ${id}:`, error);
+                }
+            }
+            
+            currentBackground = result.currentBackground || 'default';
+        } else {
+            backgroundImages = {};
+            currentBackground = 'default';
+        }
         
         // Migration: Add type property to existing backgrounds
         let needsSave = false;
@@ -62,6 +86,8 @@ async function loadBackgroundImages() {
         if (needsSave) {
             await saveBackgroundImages();
         }
+        
+        console.log(`Loaded ${Object.keys(backgroundImages).length} background images`);
     } catch (error) {
         console.log('Storage not available, using default background');
         backgroundImages = {};
@@ -87,12 +113,78 @@ async function saveUploadedImages() {
 
 async function saveBackgroundImages() {
     try {
+        // Check storage quota before saving
+        if (navigator.storage && navigator.storage.estimate) {
+            const estimate = await navigator.storage.estimate();
+            console.log('Storage quota:', estimate.quota);
+            console.log('Storage usage:', estimate.usage);
+            console.log('Storage available:', estimate.quota - estimate.usage);
+        }
+        
+        // Calculate size of data we're trying to save
+        const dataSize = JSON.stringify({
+            backgroundImages: backgroundImages,
+            currentBackground: currentBackground 
+        }).length;
+        console.log('Attempting to save background data size:', dataSize, 'bytes');
+        
         await chrome.storage.local.set({ 
             backgroundImages: backgroundImages,
             currentBackground: currentBackground 
         });
+        console.log('Background images saved successfully');
     } catch (error) {
-        console.log('Could not save background images to storage');
+        console.error('Could not save background images to storage:', error);
+        
+        // If storage is full, try to use a different approach
+        if (error.message && error.message.includes('QUOTA_EXCEEDED')) {
+            console.log('Storage quota exceeded, trying alternative storage approach');
+            
+            // Try to save each background separately to identify which one is too large
+            try {
+                await chrome.storage.local.set({ currentBackground: currentBackground });
+                console.log('Current background saved separately');
+                
+                // Save backgrounds one by one
+                for (const [id, background] of Object.entries(backgroundImages)) {
+                    try {
+                        const singleBackgroundSize = JSON.stringify(background).length;
+                        console.log(`Background ${id} size:`, singleBackgroundSize, 'bytes');
+                        
+                        if (singleBackgroundSize > 5 * 1024 * 1024) { // 5MB limit for single item
+                            console.warn(`Background ${id} is too large (${singleBackgroundSize} bytes), skipping`);
+                            delete backgroundImages[id];
+                            if (currentBackground === id) {
+                                currentBackground = 'default';
+                            }
+                            continue;
+                        }
+                        
+                        await chrome.storage.local.set({ [`background_${id}`]: background });
+                        console.log(`Background ${id} saved separately`);
+                    } catch (singleError) {
+                        console.error(`Failed to save background ${id}:`, singleError);
+                        delete backgroundImages[id];
+                        if (currentBackground === id) {
+                            currentBackground = 'default';
+                        }
+                    }
+                }
+                
+                // Save the updated background list
+                await chrome.storage.local.set({ 
+                    backgroundImagesList: Object.keys(backgroundImages),
+                    currentBackground: currentBackground 
+                });
+                
+                alert('Some large background files were removed due to storage limitations. The extension has been updated with unlimited storage permission - please reload the extension.');
+            } catch (altError) {
+                console.error('Alternative storage approach also failed:', altError);
+                alert('Storage is full. Please clear some backgrounds or reload the extension to apply the unlimited storage permission.');
+            }
+        } else {
+            alert('Could not save background images. Error: ' + error.message);
+        }
     }
 }
 
@@ -232,6 +324,7 @@ function setupManageLinks() {
     const backgroundPreviewSize = document.getElementById('background-preview-size');
     const cancelBackgroundUpload = document.getElementById('cancel-background-upload');
     const clearBackgroundsBtn = document.getElementById('clear-backgrounds-btn');
+    const storageInfoBtn = document.getElementById('storage-info-btn');
 
     // Handle icon type changes
     iconTypeSelect.addEventListener('change', function() {
@@ -961,6 +1054,9 @@ function setupManageLinks() {
             alert('All background images have been cleared.');
         }
     });
+
+    // Storage info handler
+    storageInfoBtn.addEventListener('click', displayStorageInfo);
 
     // Show/hide manage button on hover
     let hoverTimeout;
@@ -1982,8 +2078,81 @@ window.addEventListener('pageshow', function() {
     document.getElementById('search-input').value = '';
 });
 
+// Initialize storage and request persistent storage
+async function initializeStorage() {
+    try {
+        // Request persistent storage for unlimited storage
+        if (navigator.storage && navigator.storage.persist) {
+            const isPersistent = await navigator.storage.persist();
+            console.log('Persistent storage granted:', isPersistent);
+            
+            if (isPersistent) {
+                console.log('Extension now has unlimited storage capabilities');
+            } else {
+                console.log('Persistent storage not granted, storage may be limited');
+            }
+        }
+        
+        // Check current storage quota
+        if (navigator.storage && navigator.storage.estimate) {
+            const estimate = await navigator.storage.estimate();
+            console.log('Initial storage quota:', estimate.quota);
+            console.log('Initial storage usage:', estimate.usage);
+            console.log('Initial storage available:', estimate.quota - estimate.usage);
+        }
+        
+        // Check if chrome.storage.local.QUOTA_BYTES is available
+        if (chrome.storage.local.QUOTA_BYTES) {
+            console.log('Chrome storage local quota:', chrome.storage.local.QUOTA_BYTES);
+        }
+        
+    } catch (error) {
+        console.error('Error initializing storage:', error);
+    }
+}
+
+// Function to display storage information
+async function displayStorageInfo() {
+    try {
+        let info = 'Storage Information:\n\n';
+        
+        // Check browser storage
+        if (navigator.storage && navigator.storage.estimate) {
+            const estimate = await navigator.storage.estimate();
+            info += `Browser Storage:\n`;
+            info += `- Quota: ${Math.round(estimate.quota / (1024 * 1024))} MB\n`;
+            info += `- Used: ${Math.round(estimate.usage / (1024 * 1024))} MB\n`;
+            info += `- Available: ${Math.round((estimate.quota - estimate.usage) / (1024 * 1024))} MB\n\n`;
+        }
+        
+        // Check Chrome extension storage
+        if (chrome.storage.local.QUOTA_BYTES) {
+            info += `Chrome Extension Storage:\n`;
+            info += `- Quota: ${Math.round(chrome.storage.local.QUOTA_BYTES / (1024 * 1024))} MB\n\n`;
+        }
+        
+        // Check background images storage usage
+        const backgroundDataSize = JSON.stringify(backgroundImages).length;
+        info += `Current Background Data:\n`;
+        info += `- Count: ${Object.keys(backgroundImages).length} items\n`;
+        info += `- Size: ${Math.round(backgroundDataSize / (1024 * 1024) * 100) / 100} MB\n\n`;
+        
+        // List individual background sizes
+        info += `Individual Background Sizes:\n`;
+        Object.entries(backgroundImages).forEach(([id, background]) => {
+            const size = JSON.stringify(background).length;
+            info += `- ${background.name}: ${Math.round(size / (1024 * 1024) * 100) / 100} MB (${background.type})\n`;
+        });
+        
+        alert(info);
+    } catch (error) {
+        alert('Error getting storage info: ' + error.message);
+    }
+}
+
 // Initialize
 async function init() {
+    await initializeStorage();
     await loadLinks();
     await loadUploadedImages();
     await loadBackgroundImages();
