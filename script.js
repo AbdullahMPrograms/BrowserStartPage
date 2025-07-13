@@ -49,6 +49,19 @@ async function loadBackgroundImages() {
         const result = await chrome.storage.local.get(['backgroundImages', 'currentBackground']);
         backgroundImages = result.backgroundImages || {};
         currentBackground = result.currentBackground || 'default';
+        
+        // Migration: Add type property to existing backgrounds
+        let needsSave = false;
+        Object.entries(backgroundImages).forEach(([id, image]) => {
+            if (!image.type) {
+                image.type = 'image'; // Default to image for existing backgrounds
+                needsSave = true;
+            }
+        });
+        
+        if (needsSave) {
+            await saveBackgroundImages();
+        }
     } catch (error) {
         console.log('Storage not available, using default background');
         backgroundImages = {};
@@ -344,6 +357,15 @@ function setupManageLinks() {
     }
 
     function handleBackgroundDrop(file, input) {
+        // Check if it's a valid file type
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        
+        if (!isImage && !isVideo) {
+            alert('Please drop a valid image or video file');
+            return;
+        }
+        
         // Create a FileList-like object
         const dt = new DataTransfer();
         dt.items.add(file);
@@ -354,7 +376,8 @@ function setupManageLinks() {
         input.dispatchEvent(event);
         
         // Add visual feedback
-        showDropSuccess(file.name);
+        const fileType = isVideo ? 'video' : 'image';
+        showDropSuccess(`${fileType}: ${file.name}`);
     }
 
     function handleRegularImageDrop(file, input) {
@@ -745,6 +768,17 @@ function setupManageLinks() {
     function resetBackgroundUpload() {
         backgroundUpload.value = '';
         backgroundPreview.style.display = 'none';
+        
+        // Reset preview element - ensure it's an img element
+        if (backgroundPreviewImg.tagName !== 'IMG') {
+            const img = document.createElement('img');
+            img.id = 'background-preview-img';
+            img.alt = 'Preview';
+            img.className = 'w-16 h-12 object-cover border border-gray-600/50 rounded bg-gray-900/50';
+            backgroundPreviewImg.parentNode.replaceChild(img, backgroundPreviewImg);
+            backgroundPreviewImg = img;
+        }
+        
         backgroundPreviewImg.src = '';
         backgroundPreviewName.textContent = '';
         backgroundPreviewSize.textContent = '';
@@ -759,15 +793,21 @@ function setupManageLinks() {
         }
 
         // Validate file type
-        if (!file.type.startsWith('image/')) {
-            alert('Please select a valid image file');
+        const isImage = file.type.startsWith('image/');
+        const isVideo = file.type.startsWith('video/');
+        
+        if (!isImage && !isVideo) {
+            alert('Please select a valid image or video file');
             resetBackgroundUpload();
             return;
         }
 
-        // Validate file size (max 10MB for backgrounds)
-        if (file.size > 10 * 1024 * 1024) {
-            alert('Background image file size must be less than 10MB');
+        // Validate file size (max 50MB for all files)
+        const maxSize = 50 * 1024 * 1024;
+        const maxSizeText = '50MB';
+        
+        if (file.size > maxSize) {
+            alert(`${isVideo ? 'Video' : 'Image'} file size must be less than ${maxSizeText}`);
             resetBackgroundUpload();
             return;
         }
@@ -778,6 +818,20 @@ function setupManageLinks() {
             backgroundPreviewImg.src = e.target.result;
             backgroundPreviewName.textContent = file.name;
             backgroundPreviewSize.textContent = formatFileSize(file.size);
+            
+            // If it's a video, replace the img with video element
+            if (isVideo) {
+                const video = document.createElement('video');
+                video.src = e.target.result;
+                video.muted = true;
+                video.autoplay = true;
+                video.loop = true;
+                video.className = 'w-16 h-12 object-cover border border-gray-600/50 rounded bg-gray-900/50';
+                backgroundPreviewImg.parentNode.replaceChild(video, backgroundPreviewImg);
+                // Keep reference for future use
+                backgroundPreviewImg = video;
+            }
+            
             backgroundPreview.style.display = 'block';
             uploadBackgroundBtn.disabled = false;
         };
@@ -805,11 +859,16 @@ function setupManageLinks() {
                 const imageData = e.target.result;
                 const imageId = generateImageId();
                 
-                // Store the background image
+                // Determine if it's a video or image
+                const isVideo = file.type.startsWith('video/');
+                
+                // Store the background image/video
                 backgroundImages[imageId] = {
                     name: file.name,
                     data: imageData,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    type: isVideo ? 'video' : 'image',
+                    mimeType: file.type
                 };
 
                 await saveBackgroundImages();
@@ -1241,8 +1300,17 @@ function populateBackgroundGrid() {
     Object.entries(backgroundImages).forEach(([id, image]) => {
         const imageItem = document.createElement('div');
         imageItem.className = `background-item ${id === currentBackground ? 'current' : ''}`;
+        
+        // Create appropriate preview element based on type
+        let previewElement = '';
+        if (image.type === 'video') {
+            previewElement = `<video src="${image.data}" muted autoplay loop class="w-full h-full object-cover"></video>`;
+        } else {
+            previewElement = `<img src="${image.data}" alt="${image.name}" title="${image.name}">`;
+        }
+        
         imageItem.innerHTML = `
-            <img src="${image.data}" alt="${image.name}" title="${image.name}">
+            ${previewElement}
             <div class="background-item-name">${image.name}</div>
             <button class="background-item-delete" data-image-id="${id}" title="Delete background">
                 <i data-lucide="x" class="h-4 w-4 text-white"></i>
@@ -1290,6 +1358,12 @@ function populateBackgroundGrid() {
 function applyBackgroundToPage() {
     const bgElement = document.querySelector('.bg');
     
+    // Remove any existing video background
+    const existingVideo = document.querySelector('.video-background');
+    if (existingVideo) {
+        existingVideo.remove();
+    }
+    
     if (currentBackground === 'default') {
         // Reset to default background
         bgElement.style.backgroundImage = "url('images/cat_leaves.png')";
@@ -1297,7 +1371,25 @@ function applyBackgroundToPage() {
         // Apply uploaded background
         const backgroundData = backgroundImages[currentBackground];
         if (backgroundData) {
-            bgElement.style.backgroundImage = `url('${backgroundData.data}')`;
+            if (backgroundData.type === 'video') {
+                // Create video element for video backgrounds
+                const video = document.createElement('video');
+                video.src = backgroundData.data;
+                video.autoplay = true;
+                video.muted = true;
+                video.loop = true;
+                video.className = 'video-background';
+                video.style.pointerEvents = 'none'; // Prevent interaction with video
+                
+                // Insert video before the main content
+                document.body.insertBefore(video, document.body.firstChild);
+                
+                // Remove CSS background image
+                bgElement.style.backgroundImage = 'none';
+            } else {
+                // Use CSS background for images
+                bgElement.style.backgroundImage = `url('${backgroundData.data}')`;
+            }
         }
     }
 }
