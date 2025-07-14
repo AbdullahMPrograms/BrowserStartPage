@@ -46,48 +46,9 @@ async function loadUploadedImages() {
 
 async function loadBackgroundImages() {
     try {
-        const result = await chrome.storage.local.get(['backgroundImages', 'currentBackground', 'backgroundImagesList']);
-        
-        // Try to load from the normal storage first
-        if (result.backgroundImages) {
-            backgroundImages = result.backgroundImages;
-            currentBackground = result.currentBackground || 'default';
-        } else if (result.backgroundImagesList) {
-            // Load from alternative storage (individual items)
-            backgroundImages = {};
-            const backgroundIds = result.backgroundImagesList;
-            
-            for (const id of backgroundIds) {
-                try {
-                    const backgroundResult = await chrome.storage.local.get([`background_${id}`]);
-                    if (backgroundResult[`background_${id}`]) {
-                        backgroundImages[id] = backgroundResult[`background_${id}`];
-                    }
-                } catch (error) {
-                    console.error(`Failed to load background ${id}:`, error);
-                }
-            }
-            
-            currentBackground = result.currentBackground || 'default';
-        } else {
-            backgroundImages = {};
-            currentBackground = 'default';
-        }
-        
-        // Migration: Add type property to existing backgrounds
-        let needsSave = false;
-        Object.entries(backgroundImages).forEach(([id, image]) => {
-            if (!image.type) {
-                image.type = 'image'; // Default to image for existing backgrounds
-                needsSave = true;
-            }
-        });
-        
-        if (needsSave) {
-            await saveBackgroundImages();
-        }
-        
-        console.log(`Loaded ${Object.keys(backgroundImages).length} background images`);
+        const result = await chrome.storage.local.get(['backgroundImages', 'currentBackground']);
+        backgroundImages = result.backgroundImages || {};
+        currentBackground = result.currentBackground || 'default';
     } catch (error) {
         console.log('Storage not available, using default background');
         backgroundImages = {};
@@ -113,78 +74,12 @@ async function saveUploadedImages() {
 
 async function saveBackgroundImages() {
     try {
-        // Check storage quota before saving
-        if (navigator.storage && navigator.storage.estimate) {
-            const estimate = await navigator.storage.estimate();
-            console.log('Storage quota:', estimate.quota);
-            console.log('Storage usage:', estimate.usage);
-            console.log('Storage available:', estimate.quota - estimate.usage);
-        }
-        
-        // Calculate size of data we're trying to save
-        const dataSize = JSON.stringify({
-            backgroundImages: backgroundImages,
-            currentBackground: currentBackground 
-        }).length;
-        console.log('Attempting to save background data size:', dataSize, 'bytes');
-        
         await chrome.storage.local.set({ 
             backgroundImages: backgroundImages,
             currentBackground: currentBackground 
         });
-        console.log('Background images saved successfully');
     } catch (error) {
-        console.error('Could not save background images to storage:', error);
-        
-        // If storage is full, try to use a different approach
-        if (error.message && error.message.includes('QUOTA_EXCEEDED')) {
-            console.log('Storage quota exceeded, trying alternative storage approach');
-            
-            // Try to save each background separately to identify which one is too large
-            try {
-                await chrome.storage.local.set({ currentBackground: currentBackground });
-                console.log('Current background saved separately');
-                
-                // Save backgrounds one by one
-                for (const [id, background] of Object.entries(backgroundImages)) {
-                    try {
-                        const singleBackgroundSize = JSON.stringify(background).length;
-                        console.log(`Background ${id} size:`, singleBackgroundSize, 'bytes');
-                        
-                        if (singleBackgroundSize > 5 * 1024 * 1024) { // 5MB limit for single item
-                            console.warn(`Background ${id} is too large (${singleBackgroundSize} bytes), skipping`);
-                            delete backgroundImages[id];
-                            if (currentBackground === id) {
-                                currentBackground = 'default';
-                            }
-                            continue;
-                        }
-                        
-                        await chrome.storage.local.set({ [`background_${id}`]: background });
-                        console.log(`Background ${id} saved separately`);
-                    } catch (singleError) {
-                        console.error(`Failed to save background ${id}:`, singleError);
-                        delete backgroundImages[id];
-                        if (currentBackground === id) {
-                            currentBackground = 'default';
-                        }
-                    }
-                }
-                
-                // Save the updated background list
-                await chrome.storage.local.set({ 
-                    backgroundImagesList: Object.keys(backgroundImages),
-                    currentBackground: currentBackground 
-                });
-                
-                alert('Some large background files were removed due to storage limitations. The extension has been updated with unlimited storage permission - please reload the extension.');
-            } catch (altError) {
-                console.error('Alternative storage approach also failed:', altError);
-                alert('Storage is full. Please clear some backgrounds or reload the extension to apply the unlimited storage permission.');
-            }
-        } else {
-            alert('Could not save background images. Error: ' + error.message);
-        }
+        console.log('Could not save background images to storage');
     }
 }
 
@@ -319,12 +214,11 @@ function setupManageLinks() {
     const backgroundUpload = document.getElementById('background-upload');
     const uploadBackgroundBtn = document.getElementById('upload-background-btn');
     const backgroundPreview = document.getElementById('background-preview');
-    let backgroundPreviewImg = document.getElementById('background-preview-img');
+    const backgroundPreviewImg = document.getElementById('background-preview-img');
     const backgroundPreviewName = document.getElementById('background-preview-name');
     const backgroundPreviewSize = document.getElementById('background-preview-size');
     const cancelBackgroundUpload = document.getElementById('cancel-background-upload');
     const clearBackgroundsBtn = document.getElementById('clear-backgrounds-btn');
-    const storageInfoBtn = document.getElementById('storage-info-btn');
 
     // Handle icon type changes
     iconTypeSelect.addEventListener('change', function() {
@@ -450,15 +344,6 @@ function setupManageLinks() {
     }
 
     function handleBackgroundDrop(file, input) {
-        // Check if it's a valid file type
-        const isImage = file.type.startsWith('image/');
-        const isVideo = file.type.startsWith('video/');
-        
-        if (!isImage && !isVideo) {
-            alert('Please drop a valid image or video file');
-            return;
-        }
-        
         // Create a FileList-like object
         const dt = new DataTransfer();
         dt.items.add(file);
@@ -469,8 +354,7 @@ function setupManageLinks() {
         input.dispatchEvent(event);
         
         // Add visual feedback
-        const fileType = isVideo ? 'video' : 'image';
-        showDropSuccess(`${fileType}: ${file.name}`);
+        showDropSuccess(file.name);
     }
 
     function handleRegularImageDrop(file, input) {
@@ -861,17 +745,6 @@ function setupManageLinks() {
     function resetBackgroundUpload() {
         backgroundUpload.value = '';
         backgroundPreview.style.display = 'none';
-        
-        // Reset preview element - ensure it's an img element
-        if (backgroundPreviewImg.tagName !== 'IMG') {
-            const img = document.createElement('img');
-            img.id = 'background-preview-img';
-            img.alt = 'Preview';
-            img.className = 'w-16 h-12 object-cover border border-gray-600/50 rounded bg-gray-900/50';
-            backgroundPreviewImg.parentNode.replaceChild(img, backgroundPreviewImg);
-            backgroundPreviewImg = img;
-        }
-        
         backgroundPreviewImg.src = '';
         backgroundPreviewName.textContent = '';
         backgroundPreviewSize.textContent = '';
@@ -886,21 +759,15 @@ function setupManageLinks() {
         }
 
         // Validate file type
-        const isImage = file.type.startsWith('image/');
-        const isVideo = file.type.startsWith('video/');
-        
-        if (!isImage && !isVideo) {
-            alert('Please select a valid image or video file');
+        if (!file.type.startsWith('image/')) {
+            alert('Please select a valid image file');
             resetBackgroundUpload();
             return;
         }
 
-        // Validate file size (max 50MB for all files)
-        const maxSize = 50 * 1024 * 1024;
-        const maxSizeText = '50MB';
-        
-        if (file.size > maxSize) {
-            alert(`${isVideo ? 'Video' : 'Image'} file size must be less than ${maxSizeText}`);
+        // Validate file size (max 10MB for backgrounds)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('Background image file size must be less than 10MB');
             resetBackgroundUpload();
             return;
         }
@@ -908,33 +775,9 @@ function setupManageLinks() {
         // Show preview
         const reader = new FileReader();
         reader.onload = function(e) {
+            backgroundPreviewImg.src = e.target.result;
             backgroundPreviewName.textContent = file.name;
             backgroundPreviewSize.textContent = formatFileSize(file.size);
-            
-            // If it's a video, replace the img with video element
-            if (isVideo) {
-                const video = document.createElement('video');
-                video.src = e.target.result;
-                video.muted = true;
-                video.autoplay = true;
-                video.loop = true;
-                video.className = 'w-16 h-12 object-cover border border-gray-600/50 rounded bg-gray-900/50';
-                backgroundPreviewImg.parentNode.replaceChild(video, backgroundPreviewImg);
-                // Keep reference for future use
-                backgroundPreviewImg = video;
-            } else {
-                // For images, make sure we have an img element
-                if (backgroundPreviewImg.tagName !== 'IMG') {
-                    const img = document.createElement('img');
-                    img.id = 'background-preview-img';
-                    img.alt = 'Preview';
-                    img.className = 'w-16 h-12 object-cover border border-gray-600/50 rounded bg-gray-900/50';
-                    backgroundPreviewImg.parentNode.replaceChild(img, backgroundPreviewImg);
-                    backgroundPreviewImg = img;
-                }
-                backgroundPreviewImg.src = e.target.result;
-            }
-            
             backgroundPreview.style.display = 'block';
             uploadBackgroundBtn.disabled = false;
         };
@@ -962,16 +805,11 @@ function setupManageLinks() {
                 const imageData = e.target.result;
                 const imageId = generateImageId();
                 
-                // Determine if it's a video or image
-                const isVideo = file.type.startsWith('video/');
-                
-                // Store the background image/video
+                // Store the background image
                 backgroundImages[imageId] = {
                     name: file.name,
                     data: imageData,
-                    timestamp: Date.now(),
-                    type: isVideo ? 'video' : 'image',
-                    mimeType: file.type
+                    timestamp: Date.now()
                 };
 
                 await saveBackgroundImages();
@@ -1054,9 +892,6 @@ function setupManageLinks() {
             alert('All background images have been cleared.');
         }
     });
-
-    // Storage info handler
-    storageInfoBtn.addEventListener('click', displayStorageInfo);
 
     // Show/hide manage button on hover
     let hoverTimeout;
@@ -1406,17 +1241,8 @@ function populateBackgroundGrid() {
     Object.entries(backgroundImages).forEach(([id, image]) => {
         const imageItem = document.createElement('div');
         imageItem.className = `background-item ${id === currentBackground ? 'current' : ''}`;
-        
-        // Create appropriate preview element based on type
-        let previewElement = '';
-        if (image.type === 'video') {
-            previewElement = `<video src="${image.data}" muted autoplay loop class="w-full h-full object-cover"></video>`;
-        } else {
-            previewElement = `<img src="${image.data}" alt="${image.name}" title="${image.name}">`;
-        }
-        
         imageItem.innerHTML = `
-            ${previewElement}
+            <img src="${image.data}" alt="${image.name}" title="${image.name}">
             <div class="background-item-name">${image.name}</div>
             <button class="background-item-delete" data-image-id="${id}" title="Delete background">
                 <i data-lucide="x" class="h-4 w-4 text-white"></i>
@@ -1464,12 +1290,6 @@ function populateBackgroundGrid() {
 function applyBackgroundToPage() {
     const bgElement = document.querySelector('.bg');
     
-    // Remove any existing video background
-    const existingVideo = document.querySelector('.video-background');
-    if (existingVideo) {
-        existingVideo.remove();
-    }
-    
     if (currentBackground === 'default') {
         // Reset to default background
         bgElement.style.backgroundImage = "url('images/cat_leaves.png')";
@@ -1477,25 +1297,7 @@ function applyBackgroundToPage() {
         // Apply uploaded background
         const backgroundData = backgroundImages[currentBackground];
         if (backgroundData) {
-            if (backgroundData.type === 'video') {
-                // Create video element for video backgrounds
-                const video = document.createElement('video');
-                video.src = backgroundData.data;
-                video.autoplay = true;
-                video.muted = true;
-                video.loop = true;
-                video.className = 'video-background';
-                video.style.pointerEvents = 'none'; // Prevent interaction with video
-                
-                // Insert video before the main content
-                document.body.insertBefore(video, document.body.firstChild);
-                
-                // Remove CSS background image
-                bgElement.style.backgroundImage = 'none';
-            } else {
-                // Use CSS background for images
-                bgElement.style.backgroundImage = `url('${backgroundData.data}')`;
-            }
+            bgElement.style.backgroundImage = `url('${backgroundData.data}')`;
         }
     }
 }
@@ -2078,81 +1880,8 @@ window.addEventListener('pageshow', function() {
     document.getElementById('search-input').value = '';
 });
 
-// Initialize storage and request persistent storage
-async function initializeStorage() {
-    try {
-        // Request persistent storage for unlimited storage
-        if (navigator.storage && navigator.storage.persist) {
-            const isPersistent = await navigator.storage.persist();
-            console.log('Persistent storage granted:', isPersistent);
-            
-            if (isPersistent) {
-                console.log('Extension now has unlimited storage capabilities');
-            } else {
-                console.log('Persistent storage not granted, storage may be limited');
-            }
-        }
-        
-        // Check current storage quota
-        if (navigator.storage && navigator.storage.estimate) {
-            const estimate = await navigator.storage.estimate();
-            console.log('Initial storage quota:', estimate.quota);
-            console.log('Initial storage usage:', estimate.usage);
-            console.log('Initial storage available:', estimate.quota - estimate.usage);
-        }
-        
-        // Check if chrome.storage.local.QUOTA_BYTES is available
-        if (chrome.storage.local.QUOTA_BYTES) {
-            console.log('Chrome storage local quota:', chrome.storage.local.QUOTA_BYTES);
-        }
-        
-    } catch (error) {
-        console.error('Error initializing storage:', error);
-    }
-}
-
-// Function to display storage information
-async function displayStorageInfo() {
-    try {
-        let info = 'Storage Information:\n\n';
-        
-        // Check browser storage
-        if (navigator.storage && navigator.storage.estimate) {
-            const estimate = await navigator.storage.estimate();
-            info += `Browser Storage:\n`;
-            info += `- Quota: ${Math.round(estimate.quota / (1024 * 1024))} MB\n`;
-            info += `- Used: ${Math.round(estimate.usage / (1024 * 1024))} MB\n`;
-            info += `- Available: ${Math.round((estimate.quota - estimate.usage) / (1024 * 1024))} MB\n\n`;
-        }
-        
-        // Check Chrome extension storage
-        if (chrome.storage.local.QUOTA_BYTES) {
-            info += `Chrome Extension Storage:\n`;
-            info += `- Quota: ${Math.round(chrome.storage.local.QUOTA_BYTES / (1024 * 1024))} MB\n\n`;
-        }
-        
-        // Check background images storage usage
-        const backgroundDataSize = JSON.stringify(backgroundImages).length;
-        info += `Current Background Data:\n`;
-        info += `- Count: ${Object.keys(backgroundImages).length} items\n`;
-        info += `- Size: ${Math.round(backgroundDataSize / (1024 * 1024) * 100) / 100} MB\n\n`;
-        
-        // List individual background sizes
-        info += `Individual Background Sizes:\n`;
-        Object.entries(backgroundImages).forEach(([id, background]) => {
-            const size = JSON.stringify(background).length;
-            info += `- ${background.name}: ${Math.round(size / (1024 * 1024) * 100) / 100} MB (${background.type})\n`;
-        });
-        
-        alert(info);
-    } catch (error) {
-        alert('Error getting storage info: ' + error.message);
-    }
-}
-
 // Initialize
 async function init() {
-    await initializeStorage();
     await loadLinks();
     await loadUploadedImages();
     await loadBackgroundImages();

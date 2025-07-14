@@ -7,8 +7,7 @@
   },
   "permissions": [
     "favicon",
-    "storage",
-    "unlimitedStorage"
+    "storage"
   ],
   "host_permissions": [
     "https://www.google.com/*",
